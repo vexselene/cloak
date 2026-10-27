@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Cloak</string>
+    <string name="space_name">Second Space</string>
+    <string name="create_space">Create Second Space</string>
+    <string name="space_exists">Second Space is set up</string>
+    <string name="running_in_space">Running inside Second Space</string>
+    <string name="provisioning_not_allowed">This device does not allow creating a work profile right now</string>
+    <string name="owner_yes">Profile owner: yes</string>
+    <string name="owner_no">Profile owner: no</string>
+    <string name="set_lock">Set Second Space lock</string>
+</resources>
