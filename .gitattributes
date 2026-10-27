@@ -1,0 +1,15 @@
+# Shell scripts must keep LF so they run on Linux CI
+gradlew     text eol=lf
+*.sh        text eol=lf
+
+# Windows wrapper keeps CRLF
+gradlew.bat text eol=crlf
+
+# Binary files — don't touch line endings
+*.jar       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.webp      binary
+*.keystore  binary
+*.jks       binary
