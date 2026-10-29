@@ -37,6 +37,11 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
 import io.cloak.os.bridge.Auth
+import android.app.Activity
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import io.cloak.os.bridge.SpaceState
+import io.cloak.os.ui.CloneList
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,15 +68,27 @@ private fun HomeScreen() {
 
     var spaceExists by remember { mutableStateOf(hasOurSpace()) }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+    val scope = rememberCoroutineScope()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         spaceExists = hasOurSpace()
-        if (spaceExists) Commands.send(context, Commands.SET_LOCK)
+        if (result.resultCode == Activity.RESULT_OK) {
+            scope.launch {
+                repeat(30) { // retries the lock prompt for up to 30 seconds after provisioning
+                    if (SpaceStateReader.read(context) != SpaceState.NONE &&
+                        Commands.send(context, Commands.SET_LOCK).isSuccess
+                    ) return@launch
+                    delay(1000)
+                }
+            }
+        }
     }
 
     Column(
         Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val updated = remember { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }
+        Text("Build updated: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(updated))}")
         when (role) {
             Role.AGENT -> {
                 LaunchedEffect(Unit) {
@@ -108,17 +125,12 @@ private fun HomeScreen() {
                 }
                 if (spaceExists) {
                     Text(stringResource(R.string.space_exists))
-                    val cpa = remember { context.getSystemService(CrossProfileApps::class.java) }
-                    if (cpa != null) {
-                        Text("Target profiles: ${cpa.targetUserProfiles.size}")
-                        Text("Can interact: ${cpa.canInteractAcrossProfiles()}")
-                        Text("Can request: ${cpa.canRequestInteractAcrossProfiles()}")
-                    }
                     Button(onClick = {
                         Commands.send(context, Commands.PING).onFailure { Log.e("SecondSpace/Main", "ping failed", it) }
                     }) { Text("Ping Second Space") }
                     Text("Space state: $state")
                     Button(onClick = { Commands.send(context, Commands.LOCK_NOW) }) { Text("Lock Second Space") }
+                    CloneList(Modifier.weight(1f))
                     Button(onClick = { Commands.send(context, Commands.SET_LOCK) }) { Text("Set / change lock") }
                 } else {
                     Button(

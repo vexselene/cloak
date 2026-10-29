@@ -28,24 +28,24 @@ object Auth {
         prefs(context).edit().putString(KEY_SECRET, secret).commit()
     }
 
-    private fun mac(secret: String, cmd: String, ts: Long): String {
+    private fun mac(secret: String, cmd: String, arg: String, ts: Long): String {
         val m = Mac.getInstance("HmacSHA256")
         m.init(SecretKeySpec(Base64.decode(secret, Base64.NO_WRAP), "HmacSHA256"))
-        return Base64.encodeToString(m.doFinal("$cmd|$ts".toByteArray()), Base64.NO_WRAP)
+        return Base64.encodeToString(m.doFinal("$cmd|$arg|$ts".toByteArray()), Base64.NO_WRAP)
     }
 
-    fun sign(context: Context, cmd: String, ts: Long): String? {
+    fun sign(context: Context, cmd: String, arg: String, ts: Long): String? {
         val secret = prefs(context).getString(KEY_SECRET, null) ?: return null
-        return mac(secret, cmd, ts)
+        return mac(secret, cmd, arg, ts)
     }
 
-    fun verify(context: Context, cmd: String, ts: Long, sig: String?): Boolean {
+    fun verify(context: Context, cmd: String, arg: String, ts: Long, sig: String?): Boolean {
         val p = prefs(context)
         val secret = p.getString(KEY_SECRET, null) ?: return false
         if (sig == null) return false
         if (ts <= p.getLong(KEY_LAST_TS, 0L)) return false
         if (abs(System.currentTimeMillis() - ts) > MAX_SKEW_MS) return false
-        val ok = MessageDigest.isEqual(mac(secret, cmd, ts).toByteArray(), sig.toByteArray())
+        val ok = MessageDigest.isEqual(mac(secret, cmd, arg, ts).toByteArray(), sig.toByteArray())
         if (ok) p.edit().putLong(KEY_LAST_TS, ts).commit()
         return ok
     }
