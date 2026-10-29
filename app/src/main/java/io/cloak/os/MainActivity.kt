@@ -31,6 +31,9 @@ import android.content.pm.LauncherApps
 import android.os.Process
 import io.cloak.os.admin.PolicyManager
 import android.util.Log
+import android.content.pm.CrossProfileApps
+import androidx.compose.runtime.LaunchedEffect
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +69,8 @@ private fun HomeScreen() {
     ) {
         when (role) {
             Role.AGENT -> {
+                LaunchedEffect(Unit) { PolicyManager.allowCrossProfile(context) }
+                LaunchedEffect(Unit) { PolicyManager.setupChannel(context) }
                 Text(stringResource(R.string.running_in_space))
                 Text(
                     stringResource(
@@ -90,6 +95,14 @@ private fun HomeScreen() {
                 val allowed = dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
                 if (spaceExists) {
                     Text(stringResource(R.string.space_exists))
+                    val cpa = remember { context.getSystemService(CrossProfileApps::class.java) }
+                    Text("Target profiles: ${cpa.targetUserProfiles.size}")
+                    Text("Can interact: ${cpa.canInteractAcrossProfiles()}")
+                    Text("Can request: ${cpa.canRequestInteractAcrossProfiles()}")
+                    Button(onClick = {
+                        runCatching { context.startActivity(Intent("io.cloak.os.action.PING")) }
+                            .onFailure { Log.e("SecondSpace/Main", "ping failed", it) }
+                    }) { Text("Ping Second Space") }
                 } else {
                     Button(
                         enabled = allowed,
