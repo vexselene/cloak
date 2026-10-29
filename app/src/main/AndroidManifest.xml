@@ -67,6 +67,7 @@
             android:exported="true"
             android:enabled="false"
             android:directBootAware="true"
+            android:permission="io.cloak.os.permission.COMMAND"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="io.cloak.os.action.COMMAND" />

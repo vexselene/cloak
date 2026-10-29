@@ -26,6 +26,7 @@ class SpaceAdminReceiver : DeviceAdminReceiver() {
             val admin = component(context)
             dpm.setProfileName(admin, context.getString(R.string.space_name))
             dpm.setProfileEnabled(admin)
+            PolicyManager.setupChannel(context)
         }
     }
 

@@ -65,6 +65,7 @@ private fun HomeScreen() {
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         spaceExists = hasOurSpace()
+        if (spaceExists) Commands.send(context, Commands.SET_LOCK)
     }
 
     Column(
@@ -118,6 +119,7 @@ private fun HomeScreen() {
                     }) { Text("Ping Second Space") }
                     Text("Space state: $state")
                     Button(onClick = { Commands.send(context, Commands.LOCK_NOW) }) { Text("Lock Second Space") }
+                    Button(onClick = { Commands.send(context, Commands.SET_LOCK) }) { Text("Set / change lock") }
                 } else {
                     Button(
                         enabled = allowed,
