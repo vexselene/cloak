@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import io.cloak.os.bridge.Commands
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
 
@@ -36,12 +37,17 @@ object PolicyManager {
             PackageManager.DONT_KILL_APP
         )
         dpm.clearCrossProfileIntentFilters(admin)
-        val filter = IntentFilter("io.cloak.os.action.PING").apply {
-            addCategory(Intent.CATEGORY_DEFAULT)
-        }
-//        dpm.addCrossProfileIntentFilter(admin, filter, DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED)
+        val filter = IntentFilter(Commands.ACTION).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+
         dpm.addCrossProfileIntentFilter(admin, filter, DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED)
         Log.d(TAG, "Channel set up")
         Unit
     }.onFailure { Log.e(TAG, "setupChannel failed", it) }
+
+    fun lockNow(context: Context): Result<Unit> = runCatching {
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        dpm.lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY)
+        Log.d(TAG, "lockNow issued")
+        Unit
+    }.onFailure { Log.e(TAG, "lockNow failed", it) }
 }

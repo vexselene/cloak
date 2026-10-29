@@ -33,6 +33,10 @@ import io.cloak.os.admin.PolicyManager
 import android.util.Log
 import android.content.pm.CrossProfileApps
 import androidx.compose.runtime.LaunchedEffect
+import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.SpaceStateReader
+import kotlinx.coroutines.delay
+import io.cloak.os.bridge.Auth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,7 +73,10 @@ private fun HomeScreen() {
     ) {
         when (role) {
             Role.AGENT -> {
-                LaunchedEffect(Unit) { PolicyManager.allowCrossProfile(context) }
+                LaunchedEffect(Unit) {
+                    PolicyManager.allowCrossProfile(context)
+                        .onFailure { Log.e("SecondSpace/Main", "allowCrossProfile failed", it) }
+                }
                 LaunchedEffect(Unit) { PolicyManager.setupChannel(context) }
                 Text(stringResource(R.string.running_in_space))
                 Text(
@@ -93,24 +100,38 @@ private fun HomeScreen() {
             }
             Role.MAIN -> {
                 val allowed = dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
+
+                var state by remember { mutableStateOf(SpaceStateReader.read(context)) }
+                LaunchedEffect(Unit) {
+                    while (true) { state = SpaceStateReader.read(context); delay(1000) }
+                }
                 if (spaceExists) {
                     Text(stringResource(R.string.space_exists))
                     val cpa = remember { context.getSystemService(CrossProfileApps::class.java) }
-                    Text("Target profiles: ${cpa.targetUserProfiles.size}")
-                    Text("Can interact: ${cpa.canInteractAcrossProfiles()}")
-                    Text("Can request: ${cpa.canRequestInteractAcrossProfiles()}")
+                    if (cpa != null) {
+                        Text("Target profiles: ${cpa.targetUserProfiles.size}")
+                        Text("Can interact: ${cpa.canInteractAcrossProfiles()}")
+                        Text("Can request: ${cpa.canRequestInteractAcrossProfiles()}")
+                    }
                     Button(onClick = {
-                        runCatching { context.startActivity(Intent("io.cloak.os.action.PING")) }
-                            .onFailure { Log.e("SecondSpace/Main", "ping failed", it) }
+                        Commands.send(context, Commands.PING).onFailure { Log.e("SecondSpace/Main", "ping failed", it) }
                     }) { Text("Ping Second Space") }
+                    Text("Space state: $state")
+                    Button(onClick = { Commands.send(context, Commands.LOCK_NOW) }) { Text("Lock Second Space") }
                 } else {
                     Button(
                         enabled = allowed,
                         onClick = {
+                            val secret = Auth.generateSecret()
+                            Auth.saveSecret(context, secret)
                             val intent = Intent(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
                                 .putExtra(
                                     DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
                                     SpaceAdminReceiver.component(context)
+                                )
+                                .putExtra(
+                                    DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
+                                    android.os.PersistableBundle().apply { putString(Auth.BUNDLE_SECRET, secret) }
                                 )
                             launcher.launch(intent)
                         }

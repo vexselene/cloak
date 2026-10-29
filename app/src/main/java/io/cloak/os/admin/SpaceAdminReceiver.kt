@@ -9,8 +9,8 @@ import android.util.Log
 import io.cloak.os.R
 
 class SpaceAdminReceiver : DeviceAdminReceiver() {
-
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
+        storeSecret(context, intent, "onProfileProvisioningComplete")
         Log.d(TAG, "onProfileProvisioningComplete")
         enableProfile(context)
     }
@@ -26,6 +26,16 @@ class SpaceAdminReceiver : DeviceAdminReceiver() {
             val admin = component(context)
             dpm.setProfileName(admin, context.getString(R.string.space_name))
             dpm.setProfileEnabled(admin)
+        }
+    }
+
+    private fun storeSecret(context: Context, intent: Intent, where: String) {
+        val extras = intent.getParcelableExtra<android.os.PersistableBundle>(
+            DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE
+        )
+        extras?.getString(io.cloak.os.bridge.Auth.BUNDLE_SECRET)?.let {
+            io.cloak.os.bridge.Auth.saveSecret(context, it)
+            Log.d(TAG, "secret stored via $where")
         }
     }
 }

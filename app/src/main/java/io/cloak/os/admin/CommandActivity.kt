@@ -1,16 +1,32 @@
 package io.cloak.os.admin
 
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
 import android.os.Bundle
-import android.os.Process
 import android.util.Log
 import android.widget.Toast
-
+import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.Auth
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("SecondSpace/Command", "action=${intent.action} user=${Process.myUserHandle()}")
-        Toast.makeText(this, "Ping received in Second Space", Toast.LENGTH_SHORT).show()
+        val cmdName = intent.getStringExtra(Commands.EXTRA_CMD)
+        val ts = intent.getLongExtra(Auth.EXTRA_TS, 0L)
+        val sig = intent.getStringExtra(Auth.EXTRA_SIG)
+        if (cmdName == null || !Auth.verify(this, cmdName, ts, sig)) {
+            Log.w("SecondSpace/Command", "rejected unsigned or invalid command")
+            finish()
+            return
+        }
+        val dpm = getSystemService(DevicePolicyManager::class.java)
+        if (dpm.isProfileOwnerApp(packageName)) {
+            when (val cmd = intent.getStringExtra(Commands.EXTRA_CMD)) {
+                Commands.PING ->
+                    Toast.makeText(this, "Ping received in Second Space", Toast.LENGTH_SHORT).show()
+                Commands.LOCK_NOW -> PolicyManager.lockNow(this)
+                else -> Log.w("SecondSpace/Command", "unknown command: $cmd")
+            }
+        }
         finish()
     }
 }
