@@ -8,6 +8,7 @@ object Commands {
     const val EXTRA_CMD = "cmd"
     const val PING = "ping"
     const val LOCK_NOW = "lock_now"
+    const val SET_LOCK = "set_lock"
 
     fun send(context: Context, cmd: String): Result<Unit> = runCatching {
         val ts = System.currentTimeMillis()
