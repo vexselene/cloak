@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import io.cloak.os.bridge.SpaceState
 import io.cloak.os.ui.CloneList
+import androidx.core.content.FileProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,10 +74,12 @@ private fun HomeScreen() {
         spaceExists = hasOurSpace()
         if (result.resultCode == Activity.RESULT_OK) {
             scope.launch {
-                repeat(30) { // retries the lock prompt for up to 30 seconds after provisioning
-                    if (SpaceStateReader.read(context) != SpaceState.NONE &&
-                        Commands.send(context, Commands.SET_LOCK).isSuccess
-                    ) return@launch
+                delay(3000)
+                repeat(30) { i ->
+                    val st = SpaceStateReader.read(context)
+                    val r = if (st != SpaceState.NONE) Commands.send(context, Commands.SET_LOCK) else null
+                    Log.d("SecondSpace/Main", "set_lock attempt $i state=$st result=$r")
+                    if (r?.isSuccess == true) return@launch
                     delay(1000)
                 }
             }
@@ -130,6 +133,14 @@ private fun HomeScreen() {
                     }) { Text("Ping Second Space") }
                     Text("Space state: $state")
                     Button(onClick = { Commands.send(context, Commands.LOCK_NOW) }) { Text("Lock Second Space") }
+                    Button(onClick = {
+                        runCatching {
+                            val dir = java.io.File(context.cacheDir, "bridge").apply { mkdirs() }
+                            val f = java.io.File(dir, "test.txt").apply { writeText("hello ${System.currentTimeMillis()}") }
+                            val uri = FileProvider.getUriForFile(context, "io.cloak.os.fileprovider", f)
+                            Commands.send(context, Commands.FILE_TEST, "test.txt", listOf(uri)).getOrThrow()
+                        }.onFailure { Log.e("SecondSpace/Main", "file test failed", it) }
+                    }) { Text("File bridge test") }
                     CloneList(Modifier.weight(1f))
                     Button(onClick = { Commands.send(context, Commands.SET_LOCK) }) { Text("Set / change lock") }
                 } else {
