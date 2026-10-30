@@ -42,6 +42,7 @@ import io.cloak.os.ui.CloneList
 import io.cloak.os.ui.SpaceGrid
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import io.cloak.os.debug.DebugPanel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,8 +63,7 @@ private fun HomeScreen() {
         Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val updated = remember { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }
-        Text("Build updated: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(updated))}")
+        DebugPanel(role)
         when (role) {
             Role.AGENT -> AgentScreen()
             Role.MAIN -> MainScreen()
