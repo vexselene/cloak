@@ -3,7 +3,7 @@ package io.cloak.os.apps
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.content.pm.CrossProfileApps
+import io.cloak.os.bridge.SpaceProfile
 import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
@@ -19,8 +19,7 @@ data class SpaceApp(
 )
 
 object SpaceApps {
-    fun profile(context: Context): UserHandle? =
-        context.getSystemService(CrossProfileApps::class.java).targetUserProfiles.firstOrNull()
+    fun profile(context: Context): UserHandle? = SpaceProfile.find(context)
 
     fun list(context: Context): List<SpaceApp> {
         val user = profile(context) ?: return emptyList()

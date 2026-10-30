@@ -43,6 +43,7 @@ import io.cloak.os.ui.SpaceGrid
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import io.cloak.os.debug.DebugPanel
+import io.cloak.os.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,7 +107,7 @@ private fun ColumnScope.MainScreen() {
     val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf(SpaceStateReader.read(context)) }
-    var showAdd by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(HomeTab.GRID) }
     LaunchedEffect(Unit) {
         while (true) { state = SpaceStateReader.read(context); delay(1000) }
     }
@@ -155,17 +156,25 @@ private fun ColumnScope.MainScreen() {
         }
         SpaceState.UNLOCKED -> {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { showAdd = !showAdd }, modifier = Modifier.weight(1f)) {
-                    Text(if (showAdd) "Back" else "Add apps")
-                }
+                Button(
+                    onClick = { tab = if (tab == HomeTab.ADD) HomeTab.GRID else HomeTab.ADD },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (tab == HomeTab.ADD) "Back" else "Add apps") }
                 Button(onClick = { Commands.send(context, Commands.LOCK_NOW) }, modifier = Modifier.weight(1f)) {
                     Text("Lock")
                 }
-                Button(onClick = { Commands.send(context, Commands.SET_LOCK) }, modifier = Modifier.weight(1f)) {
-                    Text("Set lock")
-                }
+                Button(
+                    onClick = { tab = if (tab == HomeTab.SETTINGS) HomeTab.GRID else HomeTab.SETTINGS },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (tab == HomeTab.SETTINGS) "Back" else stringResource(R.string.settings)) }
             }
-            if (showAdd) CloneList(Modifier.weight(1f)) else SpaceGrid(Modifier.weight(1f))
+            when (tab) {
+                HomeTab.GRID -> SpaceGrid(Modifier.weight(1f))
+                HomeTab.ADD -> CloneList(Modifier.weight(1f))
+                HomeTab.SETTINGS -> SettingsScreen(Modifier.weight(1f))
+            }
         }
     }
 }
+
+private enum class HomeTab { GRID, ADD, SETTINGS }

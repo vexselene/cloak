@@ -1,0 +1,115 @@
+package io.cloak.os.ui
+
+import android.util.Log
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import io.cloak.os.R
+import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.PrivacySettings
+
+private const val TAG = "SecondSpace/Settings"
+
+@Composable
+fun SettingsScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var settings by remember { mutableStateOf(PrivacySettings.load(context)) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    fun update(new: PrivacySettings) {
+        settings = new
+        PrivacySettings.save(context, new)
+        Commands.send(context, Commands.SET_PRIVACY, new.encode())
+            .onFailure { Log.e(TAG, "send privacy failed", it) }
+    }
+
+    Column(
+        modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(stringResource(R.string.privacy_title), style = MaterialTheme.typography.titleMedium)
+        SettingToggle(R.string.privacy_screenshots, R.string.privacy_screenshots_desc, settings.blockScreenshots) {
+            update(settings.copy(blockScreenshots = it))
+        }
+        SettingToggle(R.string.privacy_notifications, R.string.privacy_notifications_desc, settings.hideNotificationContent) {
+            update(settings.copy(hideNotificationContent = it))
+        }
+        SettingToggle(R.string.privacy_clipboard, R.string.privacy_clipboard_desc, settings.blockClipboard) {
+            update(settings.copy(blockClipboard = it))
+        }
+        SettingToggle(R.string.privacy_contacts, R.string.privacy_contacts_desc, settings.blockContacts) {
+            update(settings.copy(blockContacts = it))
+        }
+        HorizontalDivider()
+        Button(
+            onClick = { Commands.send(context, Commands.SET_LOCK) },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.set_lock)) }
+        OutlinedButton(
+            onClick = { confirmDelete = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) { Text(stringResource(R.string.delete_space)) }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.delete_title)) },
+            text = { Text(stringResource(R.string.delete_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    Commands.send(context, Commands.DELETE_SPACE)
+                        .onFailure { Log.e(TAG, "send delete failed", it) }
+                }) { Text(stringResource(R.string.delete_confirm), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SettingToggle(
+    @StringRes title: Int,
+    @StringRes description: Int,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(title))
+            Text(
+                stringResource(description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
