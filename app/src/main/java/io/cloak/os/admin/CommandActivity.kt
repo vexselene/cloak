@@ -40,6 +40,14 @@ class CommandActivity : Activity() {
                     val ok = PolicyManager.cloneApp(this, arg).getOrDefault(false)
                     toast(if (ok) "Cloned $arg" else "Clone failed: $arg")
                 }
+                Commands.FILE_TEST -> {
+                    val uri = intent.clipData?.getItemAt(0)?.uri
+                    val text = uri?.let {
+                        runCatching { contentResolver.openInputStream(it)?.bufferedReader()?.readText() }.getOrNull()
+                    }
+                    Log.d("SecondSpace/Command", "file test uri=$uri content=$text")
+                    toast(if (text != null) "Got file: $text" else "File read failed")
+                }
                 else -> Log.w("SecondSpace/Command", "unknown command: $cmdName")
             }
         }
