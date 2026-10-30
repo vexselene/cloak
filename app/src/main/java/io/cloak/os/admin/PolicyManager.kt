@@ -87,4 +87,14 @@ object PolicyManager {
         Log.d(TAG, "enableSystemApp($packageName) ok")
         Unit
     }.onFailure { Log.e(TAG, "enableSystemApp failed", it) }
+
+    fun setFrozen(context: Context, packageName: String, frozen: Boolean): Result<Unit> = runCatching {
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        val failed = dpm.setPackagesSuspended(
+            SpaceAdminReceiver.component(context), arrayOf(packageName), frozen
+        )
+        if (failed.isNotEmpty()) error("could not change: ${failed.joinToString()}")
+        Log.d(TAG, "setFrozen($packageName, $frozen) ok")
+        Unit
+    }.onFailure { Log.e(TAG, "setFrozen failed", it) }
 }

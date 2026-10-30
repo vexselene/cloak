@@ -16,6 +16,9 @@ object Commands {
     const val FILE_TEST = "file_test"
     const val ENABLE_SYSTEM = "enable_system"
     const val UNLOCK = "unlock"
+    const val FREEZE = "freeze"
+    const val UNFREEZE = "unfreeze"
+    const val UNINSTALL = "uninstall"
 
     fun send(
         context: Context,
