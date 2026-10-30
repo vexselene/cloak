@@ -37,6 +37,7 @@ class CommandActivity : Activity() {
                         )
                     )
                 }
+                Commands.UNLOCK -> Log.d("SecondSpace/Command", "unlock requested")
                 Commands.ENABLE_SYSTEM -> {
                     val ok = PolicyManager.enableSystemApp(this, arg).isSuccess
                     toast(if (ok) "Enabled $arg" else "Enable failed: $arg")
