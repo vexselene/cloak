@@ -71,4 +71,11 @@ object PolicyManager {
         Log.d(TAG, "installExistingPackage($packageName) = $ok")
         ok
     }.onFailure { Log.e(TAG, "cloneApp failed", it) }
+
+    fun enableSystemApp(context: Context, packageName: String): Result<Unit> = runCatching {
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        dpm.enableSystemApp(SpaceAdminReceiver.component(context), packageName)
+        Log.d(TAG, "enableSystemApp($packageName) ok")
+        Unit
+    }.onFailure { Log.e(TAG, "enableSystemApp failed", it) }
 }

@@ -3,6 +3,7 @@ package io.cloak.os.admin
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -36,9 +37,15 @@ class CommandActivity : Activity() {
                         )
                     )
                 }
+                Commands.ENABLE_SYSTEM -> {
+                    val ok = PolicyManager.enableSystemApp(this, arg).isSuccess
+                    toast(if (ok) "Enabled $arg" else "Enable failed: $arg")
+                }
                 Commands.CLONE -> {
-                    val ok = PolicyManager.cloneApp(this, arg).getOrDefault(false)
-                    toast(if (ok) "Cloned $arg" else "Clone failed: $arg")
+                    val clip = intent.clipData
+                    val uris = (0 until (clip?.itemCount ?: 0)).mapNotNull { clip?.getItemAt(it)?.uri }
+                    installInBackground(arg, uris)
+                    return
                 }
                 Commands.FILE_TEST -> {
                     val uri = intent.clipData?.getItemAt(0)?.uri
@@ -52,6 +59,18 @@ class CommandActivity : Activity() {
             }
         }
         finish()
+    }
+
+    private fun installInBackground(pkg: String, uris: List<Uri>) {
+        Thread {
+            val result = ApkInstaller.install(this, pkg, uris)
+            if (result.isSuccess) {
+                InstallCoordinator.await(60_000)
+            } else {
+                runOnUiThread { toast("Clone failed: ${result.exceptionOrNull()?.message}") }
+            }
+            runOnUiThread { finish() }
+        }.start()
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
