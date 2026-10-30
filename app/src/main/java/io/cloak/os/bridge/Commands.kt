@@ -14,6 +14,7 @@ object Commands {
     const val SET_LOCK = "set_lock"
     const val CLONE = "clone"
     const val FILE_TEST = "file_test"
+    const val ENABLE_SYSTEM = "enable_system"
 
     fun send(
         context: Context,
