@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import io.cloak.os.bridge.Commands
 import android.os.UserManager
+import io.cloak.os.bridge.PrivacySettings
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
@@ -32,6 +33,7 @@ object PolicyManager {
     }.onFailure { Log.e(TAG, "allowCrossProfile failed", it) }
 
     fun setupChannel(context: Context): Result<Unit> = runCatching {
+        applyPrivacy(context, PrivacySettings.load(context))
         val dpm = context.getSystemService(DevicePolicyManager::class.java)
         val admin = SpaceAdminReceiver.component(context)
         context.packageManager.setComponentEnabledSetting(
@@ -97,4 +99,39 @@ object PolicyManager {
         Log.d(TAG, "setFrozen($packageName, $frozen) ok")
         Unit
     }.onFailure { Log.e(TAG, "setFrozen failed", it) }
+
+    fun applyPrivacy(context: Context, s: PrivacySettings): Result<Unit> = runCatching {
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        val admin = SpaceAdminReceiver.component(context)
+        val steps = listOf(
+            "screenshots" to runCatching { dpm.setScreenCaptureDisabled(admin, s.blockScreenshots) },
+            "notifications" to runCatching {
+                dpm.setKeyguardDisabledFeatures(
+                    admin,
+                    if (s.hideNotificationContent) DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS
+                    else DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NONE
+                )
+            },
+            "clipboard" to runCatching {
+                if (s.blockClipboard) dpm.addUserRestriction(admin, UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE)
+                else dpm.clearUserRestriction(admin, UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE)
+            },
+            "contacts" to runCatching {
+                dpm.setCrossProfileContactsSearchDisabled(admin, s.blockContacts)
+                dpm.setCrossProfileCallerIdDisabled(admin, s.blockContacts)
+            }
+        )
+        val failed = steps.filter { it.second.isFailure }
+        failed.forEach { Log.e(TAG, "privacy ${it.first} failed", it.second.exceptionOrNull()) }
+        if (failed.isNotEmpty()) error("failed: ${failed.joinToString { it.first }}")
+        Log.d(TAG, "Privacy applied: ${s.encode()}")
+        Unit
+    }.onFailure { Log.e(TAG, "applyPrivacy failed", it) }
+
+    fun deleteSpace(context: Context): Result<Unit> = runCatching {
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        check(dpm.isProfileOwnerApp(context.packageName)) { "not profile owner" }
+        dpm.wipeData(0)
+        Unit
+    }.onFailure { Log.e(TAG, "deleteSpace failed", it) }
 }

@@ -19,6 +19,8 @@ object Commands {
     const val FREEZE = "freeze"
     const val UNFREEZE = "unfreeze"
     const val UNINSTALL = "uninstall"
+    const val SET_PRIVACY = "set_privacy"
+    const val DELETE_SPACE = "delete_space"
 
     fun send(
         context: Context,

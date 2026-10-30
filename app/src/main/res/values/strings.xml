@@ -8,4 +8,20 @@
     <string name="owner_yes">Profile owner: yes</string>
     <string name="owner_no">Profile owner: no</string>
     <string name="set_lock">Set Second Space lock</string>
+    <string name="settings">Settings</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_screenshots">Block screenshots</string>
+    <string name="privacy_screenshots_desc">Stops screenshots and screen recording of apps in the space, and blanks them in Recents.</string>
+    <string name="privacy_notifications">Hide notification content on lock screen</string>
+    <string name="privacy_notifications_desc">Notifications from the space show without their text while the phone is locked.</string>
+    <string name="privacy_clipboard">Block clipboard sharing</string>
+    <string name="privacy_clipboard_desc">Copy and paste between the space and the rest of the phone is blocked in both directions.</string>
+    <string name="privacy_contacts">Keep space contacts private</string>
+    <string name="privacy_contacts_desc">Hides contacts in the space from contact search and caller ID outside it.</string>
+    <string name="privacy_apply_failed">Some privacy settings could not be applied on this device</string>
+    <string name="delete_space">Delete Second Space</string>
+    <string name="delete_title">Delete Second Space?</string>
+    <string name="delete_message">Every app in the space and all of its data will be permanently deleted. There is no backup and this cannot be undone.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="cancel">Cancel</string>
 </resources>

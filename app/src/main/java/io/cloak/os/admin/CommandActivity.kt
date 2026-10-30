@@ -9,6 +9,8 @@ import android.util.Log
 import android.widget.Toast
 import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
+import io.cloak.os.R
+import io.cloak.os.bridge.PrivacySettings
 
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,6 +65,18 @@ class CommandActivity : Activity() {
                     Log.d("SecondSpace/Command", "file test uri=$uri content=$text")
                     toast(if (text != null) "Got file: $text" else "File read failed")
                 }
+                Commands.SET_PRIVACY -> {
+                    val settings = PrivacySettings.decode(arg)
+                    if (settings == null) {
+                        Log.w("SecondSpace/Command", "bad privacy argument")
+                    } else {
+                        PrivacySettings.save(this, settings)
+                        if (PolicyManager.applyPrivacy(this, settings).isFailure) {
+                            toast(getString(R.string.privacy_apply_failed))
+                        }
+                    }
+                }
+                Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
                 else -> Log.w("SecondSpace/Command", "unknown command: $cmdName")
             }
         }
