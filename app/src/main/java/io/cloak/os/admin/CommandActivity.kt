@@ -42,6 +42,13 @@ class CommandActivity : Activity() {
                     val ok = PolicyManager.enableSystemApp(this, arg).isSuccess
                     toast(if (ok) "Enabled $arg" else "Enable failed: $arg")
                 }
+                Commands.FREEZE, Commands.UNFREEZE -> {
+                    val freeze = cmdName == Commands.FREEZE
+                    val ok = PolicyManager.setFrozen(this, arg, freeze).isSuccess
+                    toast(if (ok) (if (freeze) "Frozen $arg" else "Unfrozen $arg") else "Failed: $arg")
+                }
+                Commands.UNINSTALL ->
+                    startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$arg")))
                 Commands.CLONE -> {
                     val clip = intent.clipData
                     val uris = (0 until (clip?.itemCount ?: 0)).mapNotNull { clip?.getItemAt(it)?.uri }

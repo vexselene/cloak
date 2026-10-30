@@ -9,6 +9,7 @@
     <permission android:name="io.cloak.os.permission.COMMAND" android:protectionLevel="signature" />
     <uses-permission android:name="io.cloak.os.permission.COMMAND" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <queries>
         <intent>
