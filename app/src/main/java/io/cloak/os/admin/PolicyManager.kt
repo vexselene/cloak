@@ -12,6 +12,7 @@ import android.os.UserManager
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
+    private const val HIDE_WORK_LAUNCHER = true
 
     fun requireWorkLock(context: Context): Result<Unit> = runCatching {
         val dpm = context.getSystemService(DevicePolicyManager::class.java)
@@ -44,6 +45,14 @@ object PolicyManager {
         dpm.addCrossProfileIntentFilter(admin, filter, DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED)
         requireWorkLock(context)
         allowInstalls(context)
+        if (io.cloak.os.common.Role.detect(context) == io.cloak.os.common.Role.AGENT) {
+            context.packageManager.setComponentEnabledSetting(
+                ComponentName(context.packageName, "io.cloak.os.LauncherAlias"),
+                if (HIDE_WORK_LAUNCHER) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+        }
         Log.d(TAG, "Channel set up")
         Unit
     }.onFailure { Log.e(TAG, "setupChannel failed", it) }
