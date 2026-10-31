@@ -1,6 +1,6 @@
 package io.cloak.os.ui
 
-import android.util.Log
+import io.cloak.os.common.Logx
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
@@ -79,7 +79,7 @@ private fun AppTile(app: SpaceApp) {
                 .combinedClickable(
                     onClick = {
                         SpaceApps.launch(context, app)
-                            .onFailure { Log.e("SecondSpace/Grid", "launch failed", it) }
+                            .onFailure { Logx.e("SecondSpace/Grid", "launch failed", it) }
                     },
                     onLongClick = { menuOpen = true }
                 )
