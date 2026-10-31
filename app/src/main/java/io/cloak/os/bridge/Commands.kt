@@ -22,19 +22,24 @@ object Commands {
     const val SET_PRIVACY = "set_privacy"
     const val DELETE_SPACE = "delete_space"
 
+    val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
+
+    private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
+
+    fun isValidPackage(name: String) = name.length <= 255 && PACKAGE_NAME.matches(name)
+
     fun send(
         context: Context,
         cmd: String,
         arg: String = "",
         uris: List<Uri> = emptyList()
     ): Result<Unit> = runCatching {
-        val ts = System.currentTimeMillis()
-        val sig = Auth.sign(context, cmd, arg, ts) ?: error("space not paired: no secret")
+        val signed = Auth.sign(context, cmd, arg) ?: error("space not paired: no secret")
         val intent = Intent(ACTION)
             .putExtra(EXTRA_CMD, cmd)
             .putExtra(EXTRA_ARG, arg)
-            .putExtra(Auth.EXTRA_TS, ts)
-            .putExtra(Auth.EXTRA_SIG, sig)
+            .putExtra(Auth.EXTRA_SEQ, signed.seq)
+            .putExtra(Auth.EXTRA_SIG, signed.sig)
         if (uris.isNotEmpty()) {
             val clip = ClipData.newRawUri("bridge", uris.first())
             uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
