@@ -4,7 +4,7 @@ import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Intent
 import android.os.PersistableBundle
-import android.util.Log
+import io.cloak.os.common.Logx
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,29 +54,25 @@ fun HomeScreen() {
     val context = LocalContext.current
     val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf(SpaceStateReader.read(context)) }
+    val state by rememberSpaceState()
     var page by remember { mutableStateOf(Page.GRID) }
 
-    LaunchedEffect(Unit) {
-        while (true) { state = SpaceStateReader.read(context); delay(1000) }
-    }
     LaunchedEffect(state) { if (state != SpaceState.UNLOCKED) page = Page.GRID }
     LaunchedEffect(Unit) {
         if (state == SpaceState.PAUSED || state == SpaceState.LOCKED) {
-            Commands.send(context, Commands.UNLOCK).onFailure { Log.e(TAG, "auto unlock failed", it) }
+            Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
         }
     }
     BackHandler(enabled = page != Page.GRID) { page = Page.GRID }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        state = SpaceStateReader.read(context)
         if (result.resultCode == Activity.RESULT_OK) {
             scope.launch {
                 delay(3000)
                 repeat(30) { i ->
                     val st = SpaceStateReader.read(context)
                     val r = if (st != SpaceState.NONE) Commands.send(context, Commands.SET_LOCK) else null
-                    Log.d(TAG, "set_lock attempt $i state=$st result=$r")
+                    Logx.d(TAG, "set_lock attempt $i state=$st result=$r")
                     if (r?.isSuccess == true) return@launch
                     delay(1000)
                 }
@@ -106,7 +102,7 @@ fun HomeScreen() {
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
             onUnlock = {
-                Commands.send(context, Commands.UNLOCK).onFailure { Log.e(TAG, "unlock failed", it) }
+                Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "unlock failed", it) }
             }
         )
         SpaceState.UNLOCKED -> when (page) {
