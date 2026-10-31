@@ -10,7 +10,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,9 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.cloak.os.bridge.Commands
-import io.cloak.os.bridge.SpaceStateReader
 import io.cloak.os.common.Role
-import kotlinx.coroutines.delay
 import java.io.File
 
 private const val TAG = "SecondSpace/Debug"
@@ -39,10 +36,7 @@ fun DebugPanel(role: Role) {
             Text("Build updated: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(updated))}")
             Text("Role: $role")
             if (role == Role.MAIN) {
-                var state by remember { mutableStateOf(SpaceStateReader.read(context)) }
-                LaunchedEffect(Unit) {
-                    while (true) { state = SpaceStateReader.read(context); delay(1000) }
-                }
+                val state by io.cloak.os.ui.rememberSpaceState()
                 Text("Space state: $state")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
