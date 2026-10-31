@@ -3,7 +3,6 @@ package io.cloak.os.ui
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,12 +17,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,7 +43,7 @@ import io.cloak.os.common.Role
 import io.cloak.os.debug.DebugPanel
 
 @Composable
-fun SpaceGrid(onAddApps: () -> Unit, modifier: Modifier = Modifier) {
+fun SpaceGrid(modifier: Modifier = Modifier) {
     val apps by rememberSpaceApps()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(84.dp),
@@ -68,7 +63,6 @@ fun SpaceGrid(onAddApps: () -> Unit, modifier: Modifier = Modifier) {
             }
         }
         items(apps, key = { it.packageName }) { app -> AppTile(app) }
-        item(key = "add") { AddTile(onAddApps) }
         item(key = "debug", span = { GridItemSpan(maxLineSpan) }) { DebugPanel(Role.MAIN) }
     }
 }
@@ -128,30 +122,5 @@ private fun AppTile(app: SpaceApp) {
                 }
             )
         }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun AddTile(onClick: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            Modifier.size(60.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(R.string.add),
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
-        )
     }
 }
