@@ -1,6 +1,6 @@
 package io.cloak.os.ui
 
-import android.util.Log
+import io.cloak.os.common.Logx
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,7 +43,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         settings = new
         PrivacySettings.save(context, new)
         Commands.send(context, Commands.SET_PRIVACY, new.encode())
-            .onFailure { Log.e(TAG, "send privacy failed", it) }
+            .onFailure { Logx.e(TAG, "send privacy failed", it) }
     }
 
     Column(
@@ -84,7 +84,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 TextButton(onClick = {
                     confirmDelete = false
                     Commands.send(context, Commands.DELETE_SPACE)
-                        .onFailure { Log.e(TAG, "send delete failed", it) }
+                        .onFailure { Logx.e(TAG, "send delete failed", it) }
                 }) { Text(stringResource(R.string.delete_confirm), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {

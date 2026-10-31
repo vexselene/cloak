@@ -46,4 +46,7 @@
     <string name="get_from_play_store_desc">Opens the Play Store inside Second Space</string>
     <string name="play_store_preparing">Preparing the Play Store. Tap again in a moment.</string>
     <string name="add_failed">Could not add %1$s</string>
+    <string name="toast_action_failed">Could not complete that action</string>
+    <string name="toast_clone_failed">Could not add the app</string>
+    <string name="toast_cloned">App added to Second Space</string>
 </resources>

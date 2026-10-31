@@ -1,137 +1,133 @@
 package io.cloak.os.admin
 
 import android.app.admin.DevicePolicyManager
-import android.content.Context
-import android.util.Log
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import io.cloak.os.bridge.Commands
 import android.os.UserManager
+import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
+import io.cloak.os.common.Logx
+import io.cloak.os.common.Role
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
     private const val HIDE_WORK_LAUNCHER = true
 
-    fun requireWorkLock(context: Context): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        dpm.setRequiredPasswordComplexity(DevicePolicyManager.PASSWORD_COMPLEXITY_LOW)
-        Log.d(TAG, "Required password complexity set to LOW")
-        Unit
-    }.onFailure { Log.e(TAG, "requireWorkLock failed", it) }
+    private class StepRunner(private val name: String) {
+        private val failed = mutableListOf<String>()
 
-    fun allowCrossProfile(context: Context): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        dpm.setCrossProfilePackages(
-            SpaceAdminReceiver.component(context),
-            setOf(context.packageName)
-        )
-        Log.d(TAG, "Cross-profile packages set")
-        Unit
-    }.onFailure { Log.e(TAG, "allowCrossProfile failed", it) }
-
-    fun setupChannel(context: Context): Result<Unit> = runCatching {
-        applyPrivacy(context, PrivacySettings.load(context))
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        val admin = SpaceAdminReceiver.component(context)
-        context.packageManager.setComponentEnabledSetting(
-            ComponentName(context, CommandActivity::class.java),
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        dpm.clearCrossProfileIntentFilters(admin)
-        val filter = IntentFilter(Commands.ACTION).apply { addCategory(Intent.CATEGORY_DEFAULT) }
-
-        dpm.addCrossProfileIntentFilter(admin, filter, DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED)
-        requireWorkLock(context)
-        allowInstalls(context)
-        if (io.cloak.os.common.Role.detect(context) == io.cloak.os.common.Role.AGENT) {
-            context.packageManager.setComponentEnabledSetting(
-                ComponentName(context.packageName, "io.cloak.os.LauncherAlias"),
-                if (HIDE_WORK_LAUNCHER) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            )
+        fun step(label: String, block: () -> Unit) {
+            runCatching(block).onFailure {
+                failed += label
+                Logx.e(TAG, "$name: $label failed", it)
+            }
         }
-        Log.d(TAG, "Channel set up")
-        Unit
-    }.onFailure { Log.e(TAG, "setupChannel failed", it) }
+
+        fun result(): Result<Unit> =
+            if (failed.isEmpty()) Result.success(Unit)
+            else Result.failure(IllegalStateException("$name failed: ${failed.joinToString()}"))
+    }
+
+    private fun runSteps(name: String, body: StepRunner.() -> Unit): Result<Unit> =
+        StepRunner(name).also(body).result()
+
+    private fun dpm(context: Context) = context.getSystemService(DevicePolicyManager::class.java)
+
+    fun setupChannel(context: Context): Result<Unit> {
+        val dpm = dpm(context)
+        val admin = SpaceAdminReceiver.component(context)
+        val agent = Role.detect(context) == Role.AGENT
+        return runSteps("setupChannel") {
+            step("command activity") {
+                context.packageManager.setComponentEnabledSetting(
+                    ComponentName(context, CommandActivity::class.java),
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+            }
+            step("intent filter") {
+                dpm.clearCrossProfileIntentFilters(admin)
+                val filter = IntentFilter(Commands.ACTION).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+                // Main -> space only. The space never needs to call the main copy.
+                dpm.addCrossProfileIntentFilter(
+                    admin, filter, DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                )
+            }
+            step("work lock") { requireWorkLock(context).getOrThrow() }
+            step("installs") { allowInstalls(context).getOrThrow() }
+            step("launcher icon") {
+                if (agent) {
+                    context.packageManager.setComponentEnabledSetting(
+                        ComponentName(context.packageName, "io.cloak.os.LauncherAlias"),
+                        if (HIDE_WORK_LAUNCHER) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                }
+            }
+            step("privacy") {
+                if (agent) applyPrivacy(context, PrivacySettings.load(context)).getOrThrow()
+            }
+        }.onSuccess { Logx.d(TAG, "channel set up") }
+    }
+
+    fun requireWorkLock(context: Context): Result<Unit> = runCatching {
+        dpm(context).setRequiredPasswordComplexity(DevicePolicyManager.PASSWORD_COMPLEXITY_LOW)
+    }.onFailure { Logx.e(TAG, "requireWorkLock failed", it) }
 
     fun lockNow(context: Context): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        dpm.lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY)
-        Log.d(TAG, "lockNow issued")
-        Unit
-    }.onFailure { Log.e(TAG, "lockNow failed", it) }
+        dpm(context).lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY)
+    }.onFailure { Logx.e(TAG, "lockNow failed", it) }
 
+    /** Needed so apps can be cloned in by sideloading APKs. See docs/THREAT_MODEL.md. */
     fun allowInstalls(context: Context): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        val dpm = dpm(context)
         val admin = SpaceAdminReceiver.component(context)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
-        Log.d(TAG, "Install restrictions cleared")
-        Unit
-    }.onFailure { Log.e(TAG, "allowInstalls failed", it) }
+    }.onFailure { Logx.e(TAG, "allowInstalls failed", it) }
 
-    fun cloneApp(context: Context, packageName: String): Result<Boolean> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        val ok = dpm.installExistingPackage(SpaceAdminReceiver.component(context), packageName)
-        Log.d(TAG, "installExistingPackage($packageName) = $ok")
-        ok
-    }.onFailure { Log.e(TAG, "cloneApp failed", it) }
-
-    fun enableSystemApp(context: Context, packageName: String): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        dpm.enableSystemApp(SpaceAdminReceiver.component(context), packageName)
-        Log.d(TAG, "enableSystemApp($packageName) ok")
-        Unit
-    }.onFailure { Log.e(TAG, "enableSystemApp failed", it) }
-
-    fun setFrozen(context: Context, packageName: String, frozen: Boolean): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
-        val failed = dpm.setPackagesSuspended(
-            SpaceAdminReceiver.component(context), arrayOf(packageName), frozen
-        )
-        if (failed.isNotEmpty()) error("could not change: ${failed.joinToString()}")
-        Log.d(TAG, "setFrozen($packageName, $frozen) ok")
-        Unit
-    }.onFailure { Log.e(TAG, "setFrozen failed", it) }
-
-    fun applyPrivacy(context: Context, s: PrivacySettings): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+    fun applyPrivacy(context: Context, s: PrivacySettings): Result<Unit> {
+        val dpm = dpm(context)
         val admin = SpaceAdminReceiver.component(context)
-        val steps = listOf(
-            "screenshots" to runCatching { dpm.setScreenCaptureDisabled(admin, s.blockScreenshots) },
-            "notifications" to runCatching {
+        return runSteps("applyPrivacy") {
+            step("screenshots") { dpm.setScreenCaptureDisabled(admin, s.blockScreenshots) }
+            step("notifications") {
                 dpm.setKeyguardDisabledFeatures(
                     admin,
                     if (s.hideNotificationContent) DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS
                     else DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NONE
                 )
-            },
-            "clipboard" to runCatching {
+            }
+            step("clipboard") {
                 if (s.blockClipboard) dpm.addUserRestriction(admin, UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE)
                 else dpm.clearUserRestriction(admin, UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE)
-            },
-            "contacts" to runCatching {
+            }
+            step("contacts") {
                 dpm.setCrossProfileContactsSearchDisabled(admin, s.blockContacts)
                 dpm.setCrossProfileCallerIdDisabled(admin, s.blockContacts)
             }
-        )
-        val failed = steps.filter { it.second.isFailure }
-        failed.forEach { Log.e(TAG, "privacy ${it.first} failed", it.second.exceptionOrNull()) }
-        if (failed.isNotEmpty()) error("failed: ${failed.joinToString { it.first }}")
-        Log.d(TAG, "Privacy applied: ${s.encode()}")
-        Unit
-    }.onFailure { Log.e(TAG, "applyPrivacy failed", it) }
+        }.onSuccess { Logx.d(TAG, "privacy applied: ${s.encode()}") }
+    }
 
     fun deleteSpace(context: Context): Result<Unit> = runCatching {
-        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        val dpm = dpm(context)
         check(dpm.isProfileOwnerApp(context.packageName)) { "not profile owner" }
         dpm.wipeData(0)
-        Unit
-    }.onFailure { Log.e(TAG, "deleteSpace failed", it) }
+    }.onFailure { Logx.e(TAG, "deleteSpace failed", it) }
+
+    fun enableSystemApp(context: Context, packageName: String): Result<Unit> = runCatching {
+        dpm(context).enableSystemApp(SpaceAdminReceiver.component(context), packageName)
+    }.onFailure { Logx.e(TAG, "enableSystemApp failed", it) }
+
+    fun setFrozen(context: Context, packageName: String, frozen: Boolean): Result<Unit> = runCatching {
+        val failed = dpm(context).setPackagesSuspended(
+            SpaceAdminReceiver.component(context), arrayOf(packageName), frozen
+        )
+        check(failed.isEmpty()) { "package could not be changed" }
+    }.onFailure { Logx.e(TAG, "setFrozen failed", it) }
 }

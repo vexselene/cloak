@@ -5,7 +5,7 @@ import android.content.pm.CrossProfileApps
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import android.os.UserManager
-import android.util.Log
+import io.cloak.os.common.Logx
 
 object SpaceProfile {
     private const val TAG = "SecondSpace/Profile"
@@ -19,7 +19,7 @@ object SpaceProfile {
     private fun isManaged(la: LauncherApps, user: UserHandle): Boolean {
         val type = runCatching { la.getLauncherUserInfo(user)?.userType }.getOrNull() // requires min api 35
         if (type == null) {
-            Log.d(TAG, "user type unknown, assuming managed")
+            Logx.d(TAG, "user type unknown, assuming managed")
             return true
         }
         return type == UserManager.USER_TYPE_PROFILE_MANAGED

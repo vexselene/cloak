@@ -3,7 +3,7 @@ package io.cloak.os.ui
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
-import android.util.Log
+import io.cloak.os.common.Logx
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -88,7 +88,7 @@ private suspend fun addToSpace(context: Context, app: AppEntry): Result<Unit> {
     if (app.isSystem) return Commands.send(context, Commands.ENABLE_SYSTEM, app.packageName)
     val uris = withContext(Dispatchers.IO) { ApkExporter.export(context, app.packageName) }
         .getOrElse {
-            Log.e(TAG, "export failed", it)
+            Logx.e(TAG, "export failed", it)
             return Result.failure(it)
         }
     return Commands.send(context, Commands.CLONE, app.packageName, uris)
@@ -108,7 +108,10 @@ fun AddAppsScreen(modifier: Modifier = Modifier) {
 
     LaunchedEffect(inSpace) {
         val p = pending
-        if (p != null && p in inSpace) pending = null
+        if (p != null && p in inSpace) {
+            pending = null
+            withContext(Dispatchers.IO) { ApkExporter.cleanup(context) }
+        }
     }
 
     Column(modifier.imePadding()) {
@@ -135,7 +138,7 @@ fun AddAppsScreen(modifier: Modifier = Modifier) {
                     PlayStoreRow {
                         val target = spaceApps.firstOrNull { it.packageName == PLAY_STORE }
                         if (target != null) {
-                            SpaceApps.launch(context, target).onFailure { Log.e(TAG, "play store launch failed", it) }
+                            SpaceApps.launch(context, target).onFailure { Logx.e(TAG, "play store launch failed", it) }
                         } else {
                             Commands.send(context, Commands.ENABLE_SYSTEM, PLAY_STORE)
                             Toast.makeText(context, R.string.play_store_preparing, Toast.LENGTH_LONG).show()

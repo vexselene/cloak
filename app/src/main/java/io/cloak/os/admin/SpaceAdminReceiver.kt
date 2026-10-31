@@ -5,13 +5,13 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import io.cloak.os.R
+import io.cloak.os.bridge.Auth
+import io.cloak.os.common.Logx
 
 class SpaceAdminReceiver : DeviceAdminReceiver() {
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
-        storeSecret(context, intent, "onProfileProvisioningComplete")
-        Log.d(TAG, "onProfileProvisioningComplete")
+        Auth.storeFromProvisioning(context, intent)
         enableProfile(context)
     }
 
@@ -24,19 +24,11 @@ class SpaceAdminReceiver : DeviceAdminReceiver() {
             val dpm = context.getSystemService(DevicePolicyManager::class.java)
             if (!dpm.isProfileOwnerApp(context.packageName)) return
             val admin = component(context)
-            dpm.setProfileName(admin, context.getString(R.string.space_name))
-            dpm.setProfileEnabled(admin)
+            runCatching { dpm.setProfileName(admin, context.getString(R.string.space_name)) }
+                .onFailure { Logx.e(TAG, "setProfileName failed", it) }
+            runCatching { dpm.setProfileEnabled(admin) }
+                .onFailure { Logx.e(TAG, "setProfileEnabled failed", it) }
             PolicyManager.setupChannel(context)
-        }
-    }
-
-    private fun storeSecret(context: Context, intent: Intent, where: String) {
-        val extras = intent.getParcelableExtra<android.os.PersistableBundle>(
-            DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE
-        )
-        extras?.getString(io.cloak.os.bridge.Auth.BUNDLE_SECRET)?.let {
-            io.cloak.os.bridge.Auth.saveSecret(context, it)
-            Log.d(TAG, "secret stored via $where")
         }
     }
 }
