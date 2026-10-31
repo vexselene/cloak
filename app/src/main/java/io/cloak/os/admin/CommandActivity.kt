@@ -5,82 +5,106 @@ import android.app.admin.DevicePolicyManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
+import androidx.annotation.StringRes
+import io.cloak.os.BuildConfig
+import io.cloak.os.R
+import io.cloak.os.bridge.ApkExporter
 import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
-import io.cloak.os.R
 import io.cloak.os.bridge.PrivacySettings
+import io.cloak.os.common.Logx
 
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val cmdName = intent.getStringExtra(Commands.EXTRA_CMD)
+        val keepOpen = runCatching { handle() }
+            .onFailure { Logx.e(TAG, "command failed", it) }
+            .getOrDefault(false)
+        if (!keepOpen) finish()
+    }
+
+    /** Returns true when the activity must stay alive until background work ends. */
+    private fun handle(): Boolean {
+        val cmd = intent.getStringExtra(Commands.EXTRA_CMD) ?: return false
         val arg = intent.getStringExtra(Commands.EXTRA_ARG) ?: ""
-        val ts = intent.getLongExtra(Auth.EXTRA_TS, 0L)
+        val seq = intent.getLongExtra(Auth.EXTRA_SEQ, 0L)
         val sig = intent.getStringExtra(Auth.EXTRA_SIG)
-        Log.d("SecondSpace/Command", "received cmd=$cmdName sigPresent=${sig != null}")
-        if (cmdName == null || !Auth.verify(this, cmdName, arg, ts, sig)) {
-            Log.w("SecondSpace/Command", "rejected unsigned or invalid command")
-            finish()
-            return
+
+        if (!Auth.verify(this, cmd, arg, seq, sig)) {
+            Logx.w(TAG, "rejected unsigned or invalid command")
+            return false
         }
         val dpm = getSystemService(DevicePolicyManager::class.java)
-        if (dpm.isProfileOwnerApp(packageName)) {
-            when (cmdName) {
-                Commands.PING -> toast("Ping received in Second Space")
-                Commands.LOCK_NOW -> PolicyManager.lockNow(this)
-                Commands.SET_LOCK -> {
-                    PolicyManager.requireWorkLock(this)
-                    startActivity(
-                        Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD).putExtra(
-                            DevicePolicyManager.EXTRA_PASSWORD_COMPLEXITY,
-                            DevicePolicyManager.PASSWORD_COMPLEXITY_LOW
-                        )
-                    )
-                }
-                Commands.UNLOCK -> Log.d("SecondSpace/Command", "unlock requested")
-                Commands.ENABLE_SYSTEM -> {
-                    val ok = PolicyManager.enableSystemApp(this, arg).isSuccess
-                    toast(if (ok) "Enabled $arg" else "Enable failed: $arg")
-                }
-                Commands.FREEZE, Commands.UNFREEZE -> {
-                    val freeze = cmdName == Commands.FREEZE
-                    val ok = PolicyManager.setFrozen(this, arg, freeze).isSuccess
-                    toast(if (ok) (if (freeze) "Frozen $arg" else "Unfrozen $arg") else "Failed: $arg")
-                }
-                Commands.UNINSTALL ->
-                    startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$arg")))
-                Commands.CLONE -> {
-                    val clip = intent.clipData
-                    val uris = (0 until (clip?.itemCount ?: 0)).mapNotNull { clip?.getItemAt(it)?.uri }
-                    installInBackground(arg, uris)
-                    return
-                }
-                Commands.FILE_TEST -> {
-                    val uri = intent.clipData?.getItemAt(0)?.uri
-                    val text = uri?.let {
-                        runCatching { contentResolver.openInputStream(it)?.bufferedReader()?.readText() }.getOrNull()
-                    }
-                    Log.d("SecondSpace/Command", "file test uri=$uri content=$text")
-                    toast(if (text != null) "Got file: $text" else "File read failed")
-                }
-                Commands.SET_PRIVACY -> {
-                    val settings = PrivacySettings.decode(arg)
-                    if (settings == null) {
-                        Log.w("SecondSpace/Command", "bad privacy argument")
-                    } else {
-                        PrivacySettings.save(this, settings)
-                        if (PolicyManager.applyPrivacy(this, settings).isFailure) {
-                            toast(getString(R.string.privacy_apply_failed))
-                        }
-                    }
-                }
-                Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
-                else -> Log.w("SecondSpace/Command", "unknown command: $cmdName")
-            }
+        if (!dpm.isProfileOwnerApp(packageName)) return false
+        if (cmd in Commands.TAKES_PACKAGE && (!Commands.isValidPackage(arg) || arg == packageName)) {
+            Logx.w(TAG, "rejected bad package argument")
+            return false
         }
-        finish()
+
+        when (cmd) {
+            Commands.PING -> if (BuildConfig.DEBUG) toast("Ping received in Second Space")
+            Commands.LOCK_NOW -> PolicyManager.lockNow(this)
+            Commands.SET_LOCK -> {
+                PolicyManager.requireWorkLock(this)
+                startActivity(
+                    Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD).putExtra(
+                        DevicePolicyManager.EXTRA_PASSWORD_COMPLEXITY,
+                        DevicePolicyManager.PASSWORD_COMPLEXITY_LOW
+                    )
+                )
+            }
+            Commands.UNLOCK -> Logx.d(TAG, "unlock requested")
+            Commands.ENABLE_SYSTEM ->
+                if (PolicyManager.enableSystemApp(this, arg).isFailure) toast(R.string.toast_action_failed)
+            Commands.FREEZE, Commands.UNFREEZE ->
+                if (PolicyManager.setFrozen(this, arg, cmd == Commands.FREEZE).isFailure) {
+                    toast(R.string.toast_action_failed)
+                }
+            Commands.UNINSTALL ->
+                startActivity(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", arg, null)))
+            Commands.CLONE -> {
+                val uris = bridgeUris()
+                if (uris.isEmpty()) {
+                    Logx.w(TAG, "clone without valid files")
+                    return false
+                }
+                installInBackground(arg, uris)
+                return true
+            }
+            Commands.FILE_TEST -> if (BuildConfig.DEBUG) fileTest()
+            Commands.SET_PRIVACY -> {
+                val settings = PrivacySettings.decode(arg)
+                if (settings == null) {
+                    Logx.w(TAG, "bad privacy argument")
+                } else {
+                    PrivacySettings.save(this, settings)
+                    if (PolicyManager.applyPrivacy(this, settings).isFailure) {
+                        toast(R.string.privacy_apply_failed)
+                    }
+                }
+            }
+            Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
+            else -> Logx.w(TAG, "unknown command")
+        }
+        return false
+    }
+
+    /** Only files from our own FileProvider are accepted. Empty list means reject. */
+    private fun bridgeUris(): List<Uri> {
+        val clip = intent.clipData ?: return emptyList()
+        val all = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+        val ok = all.isNotEmpty() &&
+                all.all { it.scheme == "content" && it.authority == ApkExporter.AUTHORITY }
+        return if (ok) all else emptyList()
+    }
+
+    private fun fileTest() {
+        val uri = bridgeUris().firstOrNull()
+        val text = uri?.let {
+            runCatching { contentResolver.openInputStream(it)?.bufferedReader()?.readText() }.getOrNull()
+        }
+        toast(if (text != null) "Got file: $text" else "File read failed")
     }
 
     private fun installInBackground(pkg: String, uris: List<Uri>) {
@@ -89,11 +113,16 @@ class CommandActivity : Activity() {
             if (result.isSuccess) {
                 InstallCoordinator.await(60_000)
             } else {
-                runOnUiThread { toast("Clone failed: ${result.exceptionOrNull()?.message}") }
+                runOnUiThread { toast(R.string.toast_clone_failed) }
             }
             runOnUiThread { finish() }
         }.start()
     }
 
+    private fun toast(@StringRes id: Int) = Toast.makeText(this, id, Toast.LENGTH_SHORT).show()
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    private companion object {
+        const val TAG = "SecondSpace/Command"
+    }
 }

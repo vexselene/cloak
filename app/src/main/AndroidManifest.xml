@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.REQUEST_PASSWORD_COMPLEXITY" />
-    <uses-permission
-        android:name="android.permission.INTERACT_ACROSS_PROFILES"
-        tools:ignore="ProtectedPermissions" />
     <permission android:name="io.cloak.os.permission.COMMAND" android:protectionLevel="signature" />
     <uses-permission android:name="io.cloak.os.permission.COMMAND" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -21,7 +17,6 @@
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -97,6 +92,7 @@
             android:exported="true"
             android:enabled="false"
             android:directBootAware="true"
+            android:excludeFromRecents="true"
             android:permission="io.cloak.os.permission.COMMAND"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
