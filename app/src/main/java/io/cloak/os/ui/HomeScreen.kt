@@ -158,7 +158,7 @@ private fun SpaceHome(onLock: () -> Unit, onAddApps: () -> Unit, onSettings: () 
             )
         }
     ) { inner ->
-        SpaceGrid(onAddApps, Modifier.fillMaxSize().padding(inner))
+        SpaceGrid(Modifier.fillMaxSize().padding(inner))
     }
 }
 
