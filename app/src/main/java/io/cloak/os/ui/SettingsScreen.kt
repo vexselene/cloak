@@ -30,11 +30,17 @@ import androidx.compose.ui.unit.dp
 import io.cloak.os.R
 import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
+import android.widget.Toast
+import io.cloak.os.bridge.SpaceMaintenance
 
 private const val TAG = "SecondSpace/Settings"
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
+    val reachableMsg = stringResource(R.string.maint_reachable)
+    val unreachableMsg = stringResource(R.string.maint_unreachable)
+    val restartFailedMsg = stringResource(R.string.maint_restart_failed)
+
     val context = LocalContext.current
     var settings by remember { mutableStateOf(PrivacySettings.load(context)) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -68,6 +74,29 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             onClick = { Commands.send(context, Commands.SET_LOCK) },
             modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(R.string.set_lock)) }
+        HorizontalDivider()
+        Text(stringResource(R.string.maint_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.maint_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(
+            onClick = {
+                val ok = SpaceMaintenance.check(context).isSuccess
+                Toast.makeText(context, if (ok) reachableMsg else unreachableMsg, Toast.LENGTH_LONG).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.maint_check)) }
+        OutlinedButton(
+            onClick = {
+                SpaceMaintenance.restart(context).onFailure {
+                    Toast.makeText(context, restartFailedMsg, Toast.LENGTH_LONG).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.maint_restart)) }
+        HorizontalDivider()
         OutlinedButton(
             onClick = { confirmDelete = true },
             modifier = Modifier.fillMaxWidth(),
