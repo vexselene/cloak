@@ -57,4 +57,5 @@
     <string name="maint_repair">Repair space</string>
     <string name="maint_repair_sent">Repair requested</string>
     <string name="maint_repair_failed">Could not reach Second Space. Pause and resume Work apps in Quick Settings, then try again.</string>
+    <string name="privacy_send_failed">Could not reach Second Space. Setting not changed.</string>
 </resources>
