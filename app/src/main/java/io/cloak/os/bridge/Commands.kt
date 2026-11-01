@@ -21,6 +21,7 @@ object Commands {
     const val UNINSTALL = "uninstall"
     const val SET_PRIVACY = "set_privacy"
     const val DELETE_SPACE = "delete_space"
+    const val REPAIR = "repair"
 
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 

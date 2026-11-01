@@ -40,7 +40,6 @@ import io.cloak.os.R
 import io.cloak.os.admin.SpaceAdminReceiver
 import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
-import io.cloak.os.bridge.SpaceMaintenance
 import io.cloak.os.bridge.SpaceState
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
@@ -103,10 +102,7 @@ fun HomeScreen() {
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
             onUnlock = {
-                val resumed = state == SpaceState.PAUSED && SpaceMaintenance.resume(context).isSuccess
-                if (!resumed) {
-                    Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "unlock failed", it) }
-                }
+                Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "unlock failed", it) }
             }
         )
         SpaceState.UNLOCKED -> when (page) {
