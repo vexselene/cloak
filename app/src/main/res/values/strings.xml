@@ -49,4 +49,11 @@
     <string name="toast_action_failed">Could not complete that action</string>
     <string name="toast_clone_failed">Could not add the app</string>
     <string name="toast_cloned">App added to Second Space</string>
+    <string name="maint_title">Maintenance</string>
+    <string name="maint_desc">If lock, freeze or privacy changes stop working, check the connection, then restart the space. Restarting pauses it; unlock it again afterwards.</string>
+    <string name="maint_check">Check connection</string>
+    <string name="maint_restart">Restart space</string>
+    <string name="maint_reachable">Second Space is reachable</string>
+    <string name="maint_unreachable">Second Space is not reachable. Try Restart space.</string>
+    <string name="maint_restart_failed">Could not restart. Pause and resume Work apps in Quick Settings instead.</string>
 </resources>
