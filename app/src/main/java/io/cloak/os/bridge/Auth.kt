@@ -69,7 +69,7 @@ object Auth {
         val p = prefs(context)
         val secret = p.getString(KEY_SECRET, null) ?: return null
         val seq = p.getLong(KEY_SEND_SEQ, 0L) + 1
-        p.edit().putLong(KEY_SEND_SEQ, seq).commit()
+        if (!p.edit().putLong(KEY_SEND_SEQ, seq).commit()) return null
         Signed(seq, mac(secret, cmd, arg, seq))
     }
 
@@ -78,7 +78,6 @@ object Auth {
             val p = prefs(context)
             val secret = p.getString(KEY_SECRET, null) ?: return false
             val ok = isValid(secret, p.getLong(KEY_LAST_SEQ, 0L), cmd, arg, seq, sig)
-            if (ok) p.edit().putLong(KEY_LAST_SEQ, seq).commit()
-            ok
+            ok && p.edit().putLong(KEY_LAST_SEQ, seq).commit()
         }
 }

@@ -39,7 +39,7 @@ private const val TAG = "SecondSpace/Settings"
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val reachableMsg = stringResource(R.string.maint_reachable)
     val unreachableMsg = stringResource(R.string.maint_unreachable)
-
+    val sendFailedMsg = stringResource(R.string.privacy_send_failed)
     val repairSentMsg = stringResource(R.string.maint_repair_sent)
     val repairFailedMsg = stringResource(R.string.maint_repair_failed)
 
@@ -48,10 +48,15 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     fun update(new: PrivacySettings) {
+        val old = settings
         settings = new
         PrivacySettings.save(context, new)
-        Commands.send(context, Commands.SET_PRIVACY, new.encode())
-            .onFailure { Logx.e(TAG, "send privacy failed", it) }
+        Commands.send(context, Commands.SET_PRIVACY, new.encode()).onFailure {
+            Logx.e(TAG, "send privacy failed", it)
+            settings = old
+            PrivacySettings.save(context, old)
+            Toast.makeText(context, sendFailedMsg, Toast.LENGTH_LONG).show()
+        }
     }
 
     Column(
