@@ -39,7 +39,9 @@ private const val TAG = "SecondSpace/Settings"
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val reachableMsg = stringResource(R.string.maint_reachable)
     val unreachableMsg = stringResource(R.string.maint_unreachable)
-    val restartFailedMsg = stringResource(R.string.maint_restart_failed)
+
+    val repairSentMsg = stringResource(R.string.maint_repair_sent)
+    val repairFailedMsg = stringResource(R.string.maint_repair_failed)
 
     val context = LocalContext.current
     var settings by remember { mutableStateOf(PrivacySettings.load(context)) }
@@ -90,12 +92,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         ) { Text(stringResource(R.string.maint_check)) }
         OutlinedButton(
             onClick = {
-                SpaceMaintenance.restart(context).onFailure {
-                    Toast.makeText(context, restartFailedMsg, Toast.LENGTH_LONG).show()
-                }
+                val msg = if (SpaceMaintenance.repair(context).isSuccess) repairSentMsg else repairFailedMsg
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text(stringResource(R.string.maint_restart)) }
+        ) { Text(stringResource(R.string.maint_repair)) }
         HorizontalDivider()
         OutlinedButton(
             onClick = { confirmDelete = true },
