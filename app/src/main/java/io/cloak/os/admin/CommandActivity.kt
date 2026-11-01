@@ -85,6 +85,7 @@ class CommandActivity : Activity() {
                 }
             }
             Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
+            Commands.REPAIR -> PolicyManager.setupChannel(this)
             else -> Logx.w(TAG, "unknown command")
         }
         return false
@@ -95,7 +96,7 @@ class CommandActivity : Activity() {
         val clip = intent.clipData ?: return emptyList()
         val all = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
         val ok = all.isNotEmpty() &&
-                all.all { it.scheme == "content" && it.authority == ApkExporter.AUTHORITY }
+                all.all { it.scheme == "content" && it.host == ApkExporter.AUTHORITY }
         return if (ok) all else emptyList()
     }
 
