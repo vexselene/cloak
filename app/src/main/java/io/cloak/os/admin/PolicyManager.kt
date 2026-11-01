@@ -51,9 +51,10 @@ object PolicyManager {
             step("intent filter") {
                 dpm.clearCrossProfileIntentFilters(admin)
                 val filter = IntentFilter(Commands.ACTION).apply { addCategory(Intent.CATEGORY_DEFAULT) }
-                // Main -> space only. The space never needs to call the main copy.
-                dpm.addCrossProfileIntentFilter(
-                    admin, filter, DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                dpm.addCrossProfileIntentFilter( // restored bi-directional: space does seems to need to call main
+                    admin, filter,
+                    DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or
+                            DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
                 )
             }
             step("work lock") { requireWorkLock(context).getOrThrow() }

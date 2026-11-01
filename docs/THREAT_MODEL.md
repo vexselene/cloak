@@ -15,7 +15,7 @@ and privacy tool, not a hardened security product.
 ## Trust boundaries
 - Android enforces the profile separation. Cloak relies on it and adds nothing to it.
 - The main copy talks to the space copy through one cross-profile intent filter
-  (main to space only). Commands are signed with a secret created at provisioning.
+  (bidirectional, but the main copy’s CommandActivity is disabled, so the space cannot send commands to it.). Commands are signed with a secret created at provisioning.
 - The space copy is the profile owner. It only acts on valid, signed commands.
 
 ## Not protected / known gaps
