@@ -14,6 +14,7 @@ import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
 import io.cloak.os.common.Logx
+import io.cloak.os.debug.SpikeRunner
 
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +87,7 @@ class CommandActivity : Activity() {
             }
             Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
             Commands.REPAIR -> PolicyManager.setupChannel(this)
+            Commands.SPIKE -> SpikeRunner.run(this, arg)
             else -> Logx.w(TAG, "unknown command")
         }
         return false
