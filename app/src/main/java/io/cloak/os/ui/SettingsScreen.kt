@@ -33,6 +33,8 @@ import io.cloak.os.bridge.PrivacySettings
 import android.widget.Toast
 import io.cloak.os.bridge.SpaceMaintenance
 import io.cloak.os.bridge.LockSettings
+import androidx.compose.ui.draw.alpha
+
 private const val TAG = "SecondSpace/Settings"
 
 @Composable
@@ -96,9 +98,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             updateLock(lock.copy(hideApps = on))
         }
         if (lock.hideApps) {
+            SettingToggle(R.string.lock_boot, R.string.lock_boot_desc, lock.bootFix) { on ->
+                updateLock(lock.copy(bootFix = on))
+            }
             SettingToggle(R.string.lock_shutdown, R.string.lock_shutdown_desc, lock.hideOnShutdown) { on ->
                 updateLock(lock.copy(hideOnShutdown = on))
             }
+            SettingToggle(R.string.lock_hide_all, R.string.lock_hide_all_desc, false, enabled = false) { }
         }
         HorizontalDivider()
         Button(
@@ -158,9 +164,13 @@ private fun SettingToggle(
     @StringRes title: Int,
     @StringRes description: Int,
     checked: Boolean,
+    enabled: Boolean = true,
     onChange: (Boolean) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(title))
             Text(
@@ -169,6 +179,6 @@ private fun SettingToggle(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }

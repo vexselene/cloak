@@ -22,6 +22,9 @@ import io.cloak.os.bridge.SpaceState
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.rememberUpdatedState
+import android.content.pm.LauncherApps
+import android.os.UserHandle
+import io.cloak.os.apps.SpaceApps
 
 private const val SAFETY_POLL_MS = 3_000L
 
@@ -95,5 +98,26 @@ fun OnStart(block: () -> Unit) {
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
+    }
+}
+
+@Composable
+fun OnSpacePackagesChanged(block: () -> Unit) {
+    val context = LocalContext.current
+    val current by rememberUpdatedState(block)
+    DisposableEffect(Unit) {
+        val la = context.getSystemService(LauncherApps::class.java)
+        fun changed(packageName: String, user: UserHandle) {
+            if (packageName != context.packageName && user == SpaceApps.profile(context)) current()
+        }
+        val callback = object : LauncherApps.Callback() {
+            override fun onPackageAdded(packageName: String, user: UserHandle) = changed(packageName, user)
+            override fun onPackageRemoved(packageName: String, user: UserHandle) = changed(packageName, user)
+            override fun onPackageChanged(packageName: String, user: UserHandle) = Unit
+            override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) = Unit
+            override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) = Unit
+        }
+        la.registerCallback(callback)
+        onDispose { la.unregisterCallback(callback) }
     }
 }

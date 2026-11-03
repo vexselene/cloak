@@ -67,4 +67,8 @@
     <string name="session_channel">Open session</string>
     <string name="lock_shutdown">Also hide apps on restart (may not finish)</string>
     <string name="lock_shutdown_desc">Tries to hide the apps when the phone shuts down or restarts. Android only allows a short time for this, so with many or heavy apps it may not finish. Apps are hidden again after the restart either way, and always need the work PIN.</string>
+    <string name="lock_boot">Hide apps again after a restart (recommended)</string>
+    <string name="lock_boot_desc">After the phone restarts, Cloak hides the apps that were open before. If this is off, they stay visible until you open Cloak, which then hides them and asks for the PIN again. They always need the work PIN either way.</string>
+    <string name="lock_hide_all">Hide all packages (not implemented)</string>
+    <string name="lock_hide_all_desc">Planned: also hide apps without a launcher icon. Not available yet.</string>
 </resources>
