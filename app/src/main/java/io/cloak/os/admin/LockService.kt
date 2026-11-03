@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
 import io.cloak.os.R
+import io.cloak.os.bridge.LockSettings
 import io.cloak.os.common.Logx
 
 class LockService : Service() {
@@ -23,9 +24,15 @@ class LockService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_LOCK) {
-            SessionManager.lock(this)
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_LOCK -> {
+                SessionManager.lock(this)
+                return START_NOT_STICKY
+            }
+            ACTION_REFRESH -> {
+                if (receiver != null) register() else stopSelf()
+                return START_NOT_STICKY
+            }
         }
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
@@ -43,22 +50,35 @@ class LockService : Service() {
     }
 
     override fun onDestroy() {
-        receiver?.let { runCatching { unregisterReceiver(it) } }
-        receiver = null
+        unregister()
         running = false
     }
 
+    private fun unregister() {
+        receiver?.let { runCatching { unregisterReceiver(it) } }
+        receiver = null
+    }
+
     private fun register() {
-        if (receiver != null) return
+        unregister()
         val r = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                Logx.d(TAG, "screen off, locking")
-                SessionManager.lock(this@LockService)
+                when (intent.action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        Logx.d(TAG, "screen off, locking")
+                        SessionManager.lock(this@LockService)
+                    }
+                    Intent.ACTION_SHUTDOWN -> {
+                        Logx.d(TAG, "shutdown, hiding")
+                        SessionManager.onShutdown(this@LockService)
+                    }
+                }
             }
         }
-        ContextCompat.registerReceiver(
-            this, r, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED
-        )
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF).apply {
+            if (LockSettings.load(this@LockService).shutdownActive) addAction(Intent.ACTION_SHUTDOWN)
+        }
+        ContextCompat.registerReceiver(this, r, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiver = r
     }
 
@@ -85,6 +105,7 @@ class LockService : Service() {
 
     companion object {
         const val ACTION_LOCK = "io.cloak.os.action.LOCK_SESSION"
+        const val ACTION_REFRESH = "io.cloak.os.action.REFRESH_SESSION"
         private const val TAG = "SecondSpace/LockService"
         private const val CHANNEL = "session"
         private const val NOTIFICATION_ID = 2
@@ -99,6 +120,12 @@ class LockService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, LockService::class.java))
+        }
+
+        /** Re-registers the listener so a changed setting takes effect mid-session. */
+        fun refresh(context: Context) {
+            if (!running) return
+            context.startService(Intent(context, LockService::class.java).setAction(ACTION_REFRESH))
         }
     }
 }

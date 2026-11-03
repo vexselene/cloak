@@ -65,4 +65,6 @@
     <string name="session_notification_title">Second Space is open</string>
     <string name="session_notification_lock">Lock</string>
     <string name="session_channel">Open session</string>
+    <string name="lock_shutdown">Also hide apps on restart (may not finish)</string>
+    <string name="lock_shutdown_desc">Tries to hide the apps when the phone shuts down or restarts. Android only allows a short time for this, so with many or heavy apps it may not finish. Apps are hidden again after the restart either way, and always need the work PIN.</string>
 </resources>

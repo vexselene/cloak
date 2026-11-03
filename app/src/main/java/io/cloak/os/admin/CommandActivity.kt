@@ -95,8 +95,9 @@ class CommandActivity : Activity() {
                 if (s == null) {
                     Logx.w(TAG, "bad lock mode argument")
                 } else {
+                    val old = LockSettings.load(this)
                     LockSettings.save(this, s)
-                    SessionManager.onModeChanged(this, s.hideApps)
+                    SessionManager.onSettingsChanged(this, old, s)
                 }
             }
             else -> Logx.w(TAG, "unknown command")
