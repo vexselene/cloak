@@ -70,12 +70,20 @@ fun HomeScreen() {
         mutableStateOf(state == SpaceState.UNLOCKED && LockSettings.load(context).hideApps)
     }
 
+    var appsChanged by remember { mutableStateOf(false) }
+    OnSpacePackagesChanged { appsChanged = true }
+
     fun sendSession() {
         if (!LockSettings.load(context).hideApps) return
         val now = System.currentTimeMillis()
         if (now - lastSession < 2_000L) return
         lastSession = now
-        Commands.send(context, Commands.SESSION).onFailure { Logx.e(TAG, "session failed", it) }
+        val refresh = appsChanged
+        appsChanged = false
+        Commands.send(context, Commands.SESSION, if (refresh) "r" else "").onFailure {
+            if (refresh) appsChanged = true
+            Logx.e(TAG, "session failed", it)
+        }
     }
 
     OnStart {

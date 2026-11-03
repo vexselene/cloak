@@ -40,14 +40,14 @@ object SessionManager {
     }.onFailure { Logx.e(TAG, "lock failed", it) }
 
     /** Sent by Cloak whenever it comes to the foreground with the profile unlocked. */
-    fun onAppOpened(context: Context) {
+    fun onAppOpened(context: Context, refresh: Boolean = false) {
         if (!LockSettings.load(context).hideApps) return
         val p = prefs(context)
         val open = p.getBoolean(KEY_OPEN, false)
         val fresh = System.currentTimeMillis() - p.getLong(KEY_OPENED_AT, 0L) < FRESH_MS
         when {
             !open -> openSession(context)
-            LockService.running -> refreshKnown(context)
+            LockService.running -> if (refresh) saveKnown(context, launchable(context))
             fresh -> Unit
             else -> {
                 Logx.w(TAG, "stale session, locking")
@@ -81,10 +81,6 @@ object SessionManager {
     fun reconcile(context: Context) {
         if (!LockSettings.load(context).hideApps) return
         val p = prefs(context)
-        p.getString(KEY_SHUTDOWN_NOTE, null)?.let {
-            Logx.d(TAG, "previous shutdown: $it")
-            p.edit().remove(KEY_SHUTDOWN_NOTE).commit()
-        }
         if (!p.getBoolean(KEY_OPEN, false) || LockService.running) return
         val known = p.getStringSet(KEY_KNOWN, null)
         val live = launchable(context)
@@ -95,6 +91,14 @@ object SessionManager {
         val targets = known.orEmpty() + live
         Logx.d(TAG, "reconcile: ${targets.size} apps to hide")
         if (hide(context, targets)) setOpen(context, false)
+    }
+
+    fun reportShutdown(context: Context) {
+        val p = prefs(context)
+        p.getString(KEY_SHUTDOWN_NOTE, null)?.let {
+            Logx.d(TAG, "previous shutdown: $it")
+            p.edit().remove(KEY_SHUTDOWN_NOTE).commit()
+        }
     }
 
     /** Best effort, called by the listener on ACTION_SHUTDOWN. Hides only, no key eviction. */
@@ -110,11 +114,13 @@ object SessionManager {
 
     private fun openSession(context: Context) {
         val unhidden = unhideRecorded(context)
-        prefs(context).edit()
+        val p = prefs(context)
+        p.edit()
             .putBoolean(KEY_OPEN, true)
             .putLong(KEY_OPENED_AT, System.currentTimeMillis())
             .commit()
-        refreshKnown(context, unhidden)
+        // Built once. After that it changes only on clone or uninstall, or at lock if it differs.
+        if (!p.contains(KEY_KNOWN)) saveKnown(context, launchable(context) + unhidden)
         LockService.start(context)
     }
 
@@ -122,12 +128,11 @@ object SessionManager {
         prefs(context).edit().putBoolean(KEY_OPEN, open).commit()
     }
 
-    private fun refreshKnown(context: Context, extra: Set<String> = emptySet()) {
-        saveKnown(context, launchable(context) + extra)
-    }
-
     private fun saveKnown(context: Context, packages: Set<String>) {
-        if (packages.isNotEmpty()) prefs(context).edit().putStringSet(KEY_KNOWN, packages).commit()
+        if (packages.isEmpty()) return
+        val p = prefs(context)
+        if (p.getStringSet(KEY_KNOWN, null) == packages) return
+        p.edit().putStringSet(KEY_KNOWN, packages).commit()
     }
 
     private fun launchable(context: Context): Set<String> {

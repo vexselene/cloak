@@ -89,7 +89,7 @@ class CommandActivity : Activity() {
             Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
             Commands.REPAIR -> PolicyManager.setupChannel(this)
             Commands.SPIKE -> SpikeRunner.run(this, arg)
-            Commands.SESSION -> SessionManager.onAppOpened(this)
+            Commands.SESSION -> SessionManager.onAppOpened(this, refresh = arg == "r")
             Commands.SET_LOCK_MODE -> {
                 val s = LockSettings.decode(arg)
                 if (s == null) {

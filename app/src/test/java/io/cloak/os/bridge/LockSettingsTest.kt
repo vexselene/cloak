@@ -7,13 +7,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LockSettingsTest {
-    @Test fun defaultsAreOff() {
-        assertEquals("00", LockSettings().encode())
+    @Test fun defaultsAreHideOffBootFixOn() {
+        assertEquals("001", LockSettings().encode())
     }
 
     @Test fun everyCombinationSurvivesRoundTrip() {
-        for (bits in 0 until 4) {
-            val s = LockSettings(bits and 1 != 0, bits and 2 != 0)
+        for (bits in 0 until 8) {
+            val s = LockSettings(bits and 1 != 0, bits and 2 != 0, bits and 4 != 0)
             assertEquals(s, LockSettings.decode(s.encode()))
         }
     }
@@ -25,7 +25,7 @@ class LockSettingsTest {
     }
 
     @Test fun badInputIsRejected() {
-        listOf("", "0", "1", "2", "011", "true", " 1", "1 ").forEach {
+        listOf("", "0", "00", "0011", "002", "true", " 11", "11 ").forEach {
             assertNull("'$it'", LockSettings.decode(it))
         }
     }
