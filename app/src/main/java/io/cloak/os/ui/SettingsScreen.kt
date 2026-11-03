@@ -61,6 +61,18 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    fun updateLock(new: LockSettings) {
+        val old = lock
+        lock = new
+        LockSettings.save(context, new)
+        Commands.send(context, Commands.SET_LOCK_MODE, new.encode()).onFailure {
+            Logx.e(TAG, "send lock mode failed", it)
+            lock = old
+            LockSettings.save(context, old)
+            Toast.makeText(context, sendFailedMsg, Toast.LENGTH_LONG).show()
+        }
+    }
+
     Column(
         modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -81,14 +93,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         HorizontalDivider()
         Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.titleMedium)
         SettingToggle(R.string.lock_hide, R.string.lock_hide_desc, lock.hideApps) { on ->
-            val old = lock
-            lock = LockSettings(on)
-            LockSettings.save(context, lock)
-            Commands.send(context, Commands.SET_LOCK_MODE, lock.encode()).onFailure {
-                Logx.e(TAG, "send lock mode failed", it)
-                lock = old
-                LockSettings.save(context, old)
-                Toast.makeText(context, sendFailedMsg, Toast.LENGTH_LONG).show()
+            updateLock(lock.copy(hideApps = on))
+        }
+        if (lock.hideApps) {
+            SettingToggle(R.string.lock_shutdown, R.string.lock_shutdown_desc, lock.hideOnShutdown) { on ->
+                updateLock(lock.copy(hideOnShutdown = on))
             }
         }
         HorizontalDivider()
