@@ -10,6 +10,7 @@ class PackageReplacedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (Role.detect(context) != Role.AGENT) return
         Logx.d("SecondSpace/Receiver", "setup triggered by ${intent.action}")
+        SessionManager.reconcile(context)
         PolicyManager.setupChannel(context)
     }
 }

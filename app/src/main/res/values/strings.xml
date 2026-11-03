@@ -58,4 +58,11 @@
     <string name="maint_repair_sent">Repair requested</string>
     <string name="maint_repair_failed">Could not reach Second Space. Pause and resume Work apps in Quick Settings, then try again.</string>
     <string name="privacy_send_failed">Could not reach Second Space. Setting not changed.</string>
+    <string name="lock_title">Locking (experimental)</string>
+    <string name="lock_hide">Hide apps when locked</string>
+    <string name="lock_hide_desc">When Second Space locks, its apps are hidden and stopped, and nothing arrives until you open it again. It locks when the screen turns off. While open, a small notification keeps the lock listener alive. If Cloak loses its pairing while apps are hidden, they cannot be shown again without deleting the space.</string>
+    <string name="opening_title">Opening Second Space</string>
+    <string name="session_notification_title">Second Space is open</string>
+    <string name="session_notification_lock">Lock</string>
+    <string name="session_channel">Open session</string>
 </resources>

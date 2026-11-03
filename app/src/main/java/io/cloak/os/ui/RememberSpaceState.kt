@@ -21,6 +21,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import io.cloak.os.bridge.SpaceState
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberUpdatedState
 
 private const val SAFETY_POLL_MS = 3_000L
 
@@ -81,4 +82,18 @@ fun rememberSpaceState(): State<SpaceState> {
         }
     }
     return state
+}
+
+@Composable
+fun OnStart(block: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycle = remember(context) { context.findActivity().lifecycle }
+    val current by rememberUpdatedState(block)
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) current()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 }

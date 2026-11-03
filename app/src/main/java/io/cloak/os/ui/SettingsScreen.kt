@@ -32,7 +32,7 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
 import android.widget.Toast
 import io.cloak.os.bridge.SpaceMaintenance
-
+import io.cloak.os.bridge.LockSettings
 private const val TAG = "SecondSpace/Settings"
 
 @Composable
@@ -46,6 +46,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var settings by remember { mutableStateOf(PrivacySettings.load(context)) }
     var confirmDelete by remember { mutableStateOf(false) }
+
+    var lock by remember { mutableStateOf(LockSettings.load(context)) }
 
     fun update(new: PrivacySettings) {
         val old = settings
@@ -75,6 +77,19 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
         SettingToggle(R.string.privacy_contacts, R.string.privacy_contacts_desc, settings.blockContacts) {
             update(settings.copy(blockContacts = it))
+        }
+        HorizontalDivider()
+        Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.titleMedium)
+        SettingToggle(R.string.lock_hide, R.string.lock_hide_desc, lock.hideApps) { on ->
+            val old = lock
+            lock = LockSettings(on)
+            LockSettings.save(context, lock)
+            Commands.send(context, Commands.SET_LOCK_MODE, lock.encode()).onFailure {
+                Logx.e(TAG, "send lock mode failed", it)
+                lock = old
+                LockSettings.save(context, old)
+                Toast.makeText(context, sendFailedMsg, Toast.LENGTH_LONG).show()
+            }
         }
         HorizontalDivider()
         Button(

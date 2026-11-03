@@ -15,6 +15,7 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
 import io.cloak.os.common.Logx
 import io.cloak.os.debug.SpikeRunner
+import io.cloak.os.bridge.LockSettings
 
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,7 +46,7 @@ class CommandActivity : Activity() {
 
         when (cmd) {
             Commands.PING -> if (BuildConfig.DEBUG) toast("Ping received in Second Space")
-            Commands.LOCK_NOW -> PolicyManager.lockNow(this)
+            Commands.LOCK_NOW -> SessionManager.lock(this)
             Commands.SET_LOCK -> {
                 PolicyManager.requireWorkLock(this)
                 startActivity(
@@ -88,6 +89,16 @@ class CommandActivity : Activity() {
             Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
             Commands.REPAIR -> PolicyManager.setupChannel(this)
             Commands.SPIKE -> SpikeRunner.run(this, arg)
+            Commands.SESSION -> SessionManager.onAppOpened(this)
+            Commands.SET_LOCK_MODE -> {
+                val s = LockSettings.decode(arg)
+                if (s == null) {
+                    Logx.w(TAG, "bad lock mode argument")
+                } else {
+                    LockSettings.save(this, s)
+                    SessionManager.onModeChanged(this, s.hideApps)
+                }
+            }
             else -> Logx.w(TAG, "unknown command")
         }
         return false
