@@ -44,6 +44,11 @@ import io.cloak.os.bridge.SpaceState
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.snapshotFlow
+import io.cloak.os.bridge.LockSettings
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "SecondSpace/Home"
 
@@ -58,11 +63,41 @@ fun HomeScreen() {
     var page by remember { mutableStateOf(Page.GRID) }
 
     LaunchedEffect(state) { if (state != SpaceState.UNLOCKED) page = Page.GRID }
-    LaunchedEffect(Unit) {
-        if (state == SpaceState.PAUSED || state == SpaceState.LOCKED) {
-            Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
+
+    val spaceApps by rememberSpaceApps()
+    var lastSession by remember { mutableLongStateOf(0L) }
+    var opening by remember {
+        mutableStateOf(state == SpaceState.UNLOCKED && LockSettings.load(context).hideApps)
+    }
+
+    fun sendSession() {
+        if (!LockSettings.load(context).hideApps) return
+        val now = System.currentTimeMillis()
+        if (now - lastSession < 2_000L) return
+        lastSession = now
+        Commands.send(context, Commands.SESSION).onFailure { Logx.e(TAG, "session failed", it) }
+    }
+
+    OnStart {
+        when (SpaceStateReader.read(context)) {
+            SpaceState.UNLOCKED -> sendSession()
+            SpaceState.PAUSED, SpaceState.LOCKED ->
+                Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
+            SpaceState.NONE -> Unit
         }
     }
+
+    LaunchedEffect(state) {
+        if (state == SpaceState.UNLOCKED && LockSettings.load(context).hideApps) {
+            opening = true
+            sendSession()
+            withTimeoutOrNull(2_000L) { snapshotFlow { spaceApps.isNotEmpty() }.first { it } }
+            opening = false
+        } else {
+            opening = false
+        }
+    }
+
     BackHandler(enabled = page != Page.GRID) { page = Page.GRID }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -105,7 +140,7 @@ fun HomeScreen() {
                 Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "unlock failed", it) }
             }
         )
-        SpaceState.UNLOCKED -> when (page) {
+        SpaceState.UNLOCKED -> if (opening) OpeningScreen() else when (page) {
             Page.GRID -> SpaceHome(
                 onLock = { Commands.send(context, Commands.LOCK_NOW) },
                 onAddApps = { page = Page.ADD },

@@ -23,6 +23,8 @@ object Commands {
     const val DELETE_SPACE = "delete_space"
     const val REPAIR = "repair"
     const val SPIKE = "spike"
+    const val SESSION = "session"
+    const val SET_LOCK_MODE = "set_lock_mode"
 
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 

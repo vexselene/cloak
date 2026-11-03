@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import io.cloak.os.R
 import io.cloak.os.common.Role
 import io.cloak.os.debug.DebugPanel
+import androidx.compose.material3.CircularProgressIndicator
 
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
@@ -87,5 +88,12 @@ private fun CenteredPage(title: String, body: String, actions: @Composable Colum
             actions()
             DebugPanel(Role.MAIN)
         }
+    }
+}
+
+@Composable
+fun OpeningScreen() {
+    CenteredPage(title = stringResource(R.string.opening_title), body = "") {
+        CircularProgressIndicator()
     }
 }

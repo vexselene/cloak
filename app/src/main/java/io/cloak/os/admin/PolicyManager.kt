@@ -11,6 +11,8 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.bridge.PrivacySettings
 import io.cloak.os.common.Logx
 import io.cloak.os.common.Role
+import android.Manifest
+import android.os.Build
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
@@ -71,6 +73,14 @@ object PolicyManager {
             }
             step("privacy") {
                 if (agent) applyPrivacy(context, PrivacySettings.load(context)).getOrThrow()
+            }
+            step("notification permission") {
+                if (agent && Build.VERSION.SDK_INT >= 33) {
+                    dpm.setPermissionGrantState(
+                        admin, context.packageName, Manifest.permission.POST_NOTIFICATIONS,
+                        DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                    )
+                }
             }
         }.onSuccess { Logx.d(TAG, "channel set up") }
     }
