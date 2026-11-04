@@ -50,10 +50,11 @@ import io.cloak.os.bridge.LockSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.runtime.mutableIntStateOf
+import io.cloak.os.bridge.RecoveryStore
 
 private const val TAG = "SecondSpace/Home"
 
-private enum class Page { GRID, ADD, SETTINGS }
+private enum class Page { GRID, ADD, SETTINGS, RECOVERY }
 
 @Composable
 fun HomeScreen() {
@@ -108,7 +109,15 @@ fun HomeScreen() {
         }
     }
 
-    BackHandler(enabled = page != Page.GRID) { page = Page.GRID }
+    LaunchedEffect(state) {
+        if (state == SpaceState.NONE || state == SpaceState.FOREIGN) {
+            RecoveryStore.setEnabledHint(context, false)
+        }
+    }
+
+    BackHandler(enabled = page != Page.GRID) {
+        page = if (page == Page.RECOVERY) Page.SETTINGS else Page.GRID
+    }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -162,7 +171,10 @@ fun HomeScreen() {
                 AddAppsScreen(it)
             }
             Page.SETTINGS -> SubPage(stringResource(R.string.settings), onBack = { page = Page.GRID }) {
-                SettingsScreen(it)
+                SettingsScreen(it, onOpenRecovery = { page = Page.RECOVERY })
+            }
+            Page.RECOVERY -> SubPage(stringResource(R.string.recovery_title), onBack = { page = Page.SETTINGS }) {
+                RecoverySetupScreen(modifier = it, onDone = { page = Page.SETTINGS })
             }
         }
     }

@@ -32,3 +32,8 @@ and privacy tool, not a hardened security product.
   Verified on OxygenOS 15 only, and clipboard blocking is currently not confirmed.
 - No backup. Deleting the space deletes its data.
 - Release builds log only exception class names. Debug builds log more.
+- Optional recovery token: when the user opts in, the space copy stores a key derived
+    from the token (never the token) in device-protected storage, next to the pairing
+    secret. Anyone who can read that storage can already control the space. Setting up
+    the token over the signed channel is protected by the same checks as any command.
+    The recover entry point is added in a later step and gets its own entry.

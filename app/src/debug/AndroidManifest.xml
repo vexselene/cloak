@@ -15,5 +15,11 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="screen-off listener spike" />
         </service>
+        <activity
+            android:name=".debug.PinProbeActivity"
+            android:exported="false"
+            android:directBootAware="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>
