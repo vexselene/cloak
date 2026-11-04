@@ -18,8 +18,18 @@ import io.cloak.os.debug.SpikeRunner
 import io.cloak.os.bridge.LockSettings
 import io.cloak.os.bridge.RecoveryStore
 import io.cloak.os.bridge.RecoveryToken
+import android.app.KeyguardManager
+import io.cloak.os.bridge.RecoveryProof
+
 class CommandActivity : Activity() {
+    private var awaitingPin = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // If Android recreates the activity while the PIN prompt is up, the result still arrives and the command isn’t run twice.
+        if (savedInstanceState?.getBoolean(STATE_AWAITING) == true) {
+            awaitingPin = true
+            return
+        }
         super.onCreate(savedInstanceState)
         val keepOpen = runCatching { handle() }
             .onFailure { Logx.e(TAG, "command failed", it) }
@@ -33,6 +43,8 @@ class CommandActivity : Activity() {
         val arg = intent.getStringExtra(Commands.EXTRA_ARG) ?: ""
         val seq = intent.getLongExtra(Auth.EXTRA_SEQ, 0L)
         val sig = intent.getStringExtra(Auth.EXTRA_SIG)
+
+        if (cmd == Commands.RECOVER) return handleRecover()
 
         if (!Auth.verify(this, cmd, arg, seq, sig)) {
             Logx.w(TAG, "rejected unsigned or invalid command")
@@ -150,5 +162,68 @@ class CommandActivity : Activity() {
 
     private companion object {
         const val TAG = "SecondSpace/Command"
+        const val STATE_AWAITING = "awaiting_pin"
+        const val REQUEST_PIN = 1
+    }
+
+    private fun handleRecover(): Boolean {
+        val dpm = getSystemService(DevicePolicyManager::class.java)
+        if (!dpm.isProfileOwnerApp(packageName)) return false
+        val outcome = RecoveryGate.evaluate(
+            this,
+            intent.getStringExtra(RecoveryProof.EXTRA_SECRET),
+            intent.getLongExtra(RecoveryProof.EXTRA_TS, 0L),
+            intent.getStringExtra(RecoveryProof.EXTRA_PROOF)
+        )
+        Logx.d(TAG, "recovery outcome $outcome")
+        when (outcome) {
+            RecoveryOutcome.ACCEPTED -> return askForPin()
+            RecoveryOutcome.NOT_ENABLED -> toast(R.string.recover_not_enabled)
+            RecoveryOutcome.NOT_UNLOCKED -> toast(R.string.recover_not_unlocked)
+            RecoveryOutcome.LOCKED_OUT -> toast(R.string.recover_locked_out)
+            RecoveryOutcome.EXPIRED -> toast(R.string.recover_expired)
+            RecoveryOutcome.BAD_PROOF -> toast(R.string.recover_bad_token)
+            RecoveryOutcome.MALFORMED -> Unit
+        }
+        return false
+    }
+
+    @Suppress("DEPRECATION")
+    private fun askForPin(): Boolean {
+        val km = getSystemService(KeyguardManager::class.java)
+        val prompt = km.createConfirmDeviceCredentialIntent(
+            getString(R.string.recover_pin_title),
+            getString(R.string.recover_pin_desc)
+        )
+        if (prompt == null) {
+            RecoveryGate.discard(this)
+            toast(R.string.recover_no_lock)
+            return false
+        }
+        awaitingPin = true
+        startActivityForResult(prompt, REQUEST_PIN)
+        return true
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_PIN) return
+        awaitingPin = false
+        val ok = resultCode == RESULT_OK && RecoveryGate.commit(this)
+        if (ok) {
+            toast(R.string.recover_done_toast)
+            setResult(RESULT_OK)
+        } else {
+            RecoveryGate.discard(this)
+            toast(R.string.recover_cancelled)
+            setResult(RESULT_CANCELED)
+        }
+        finish()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_AWAITING, awaitingPin)
     }
 }

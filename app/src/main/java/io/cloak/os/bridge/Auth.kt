@@ -36,6 +36,14 @@ object Auth {
         prefs(context).edit().putString(KEY_SECRET, secret).commit()
     }
 
+    fun replaceSecret(context: Context, secret: String): Boolean = synchronized(lock) {
+        prefs(context).edit()
+            .putString(KEY_SECRET, secret)
+            .putLong(KEY_SEND_SEQ, 0L)
+            .putLong(KEY_LAST_SEQ, 0L)
+            .commit()
+    }
+
     fun hasSecret(context: Context): Boolean =
         prefs(context).getString(KEY_SECRET, null) != null
 

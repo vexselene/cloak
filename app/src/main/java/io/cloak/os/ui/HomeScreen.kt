@@ -54,7 +54,7 @@ import io.cloak.os.bridge.RecoveryStore
 
 private const val TAG = "SecondSpace/Home"
 
-private enum class Page { GRID, ADD, SETTINGS, RECOVERY }
+private enum class Page { GRID, ADD, SETTINGS, RECOVERY, RESTORE }
 
 @Composable
 fun HomeScreen() {
@@ -64,8 +64,10 @@ fun HomeScreen() {
     var checkTick by remember { mutableIntStateOf(0) }
     val state by rememberSpaceState(checkTick)
     var page by remember { mutableStateOf(Page.GRID) }
+    var restoring by remember { mutableStateOf(false) }
 
     LaunchedEffect(state) { if (state != SpaceState.UNLOCKED) page = Page.GRID }
+    LaunchedEffect(state) { if (state != SpaceState.UNPAIRED) restoring = false }
 
     val spaceApps by rememberSpaceApps()
     var lastSession by remember { mutableLongStateOf(0L) }
@@ -115,8 +117,13 @@ fun HomeScreen() {
         }
     }
 
-    BackHandler(enabled = page != Page.GRID) {
-        page = if (page == Page.RECOVERY) Page.SETTINGS else Page.GRID
+    BackHandler(enabled = page != Page.GRID || restoring) {
+        when {
+            restoring -> restoring = false
+            page == Page.RESTORE -> page = Page.RECOVERY
+            page == Page.RECOVERY -> page = Page.SETTINGS
+            else -> page = Page.GRID
+        }
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -153,7 +160,13 @@ fun HomeScreen() {
                 )
             }
         )
-        SpaceState.UNPAIRED -> UnpairedScreen()
+        SpaceState.UNPAIRED -> if (restoring) {
+            SubPage(stringResource(R.string.restore_title), onBack = { restoring = false }) {
+                RecoveryRestoreScreen(it, onDone = { restoring = false; checkTick++ })
+            }
+        } else {
+            UnpairedScreen(onRecover = { restoring = true })
+        }
         SpaceState.FOREIGN -> ForeignScreen(onCheckAgain = { checkTick++ })
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
@@ -174,7 +187,14 @@ fun HomeScreen() {
                 SettingsScreen(it, onOpenRecovery = { page = Page.RECOVERY })
             }
             Page.RECOVERY -> SubPage(stringResource(R.string.recovery_title), onBack = { page = Page.SETTINGS }) {
-                RecoverySetupScreen(modifier = it, onDone = { page = Page.SETTINGS })
+                RecoverySetupScreen(
+                    modifier = it,
+                    onRestore = { page = Page.RESTORE },
+                    onDone = { page = Page.SETTINGS }
+                )
+            }
+            Page.RESTORE -> SubPage(stringResource(R.string.restore_title), onBack = { page = Page.RECOVERY }) {
+                RecoveryRestoreScreen(it, onDone = { page = Page.SETTINGS; checkTick++ })
             }
         }
     }

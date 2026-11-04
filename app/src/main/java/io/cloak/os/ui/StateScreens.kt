@@ -69,17 +69,15 @@ fun LockedScreen(paused: Boolean, onUnlock: () -> Unit) {
 }
 
 @Composable
-fun UnpairedScreen() {
+fun UnpairedScreen(onRecover: () -> Unit) {
     val context = LocalContext.current
     val failedMsg = stringResource(R.string.unpaired_settings_failed)
     CenteredPage(
         title = stringResource(R.string.unpaired_title),
         body = stringResource(R.string.unpaired_body)
     ) {
-        OutlinedButton(onClick = {}, enabled = false) {
-            Text(stringResource(R.string.unpaired_recover))
-        }
-        Button(onClick = {
+        Button(onClick = onRecover) { Text(stringResource(R.string.unpaired_recover)) }
+        OutlinedButton(onClick = {
             if (!openProfileSettings(context)) {
                 Toast.makeText(context, failedMsg, Toast.LENGTH_LONG).show()
             }
