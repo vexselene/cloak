@@ -29,6 +29,8 @@ import io.cloak.os.R
 import io.cloak.os.common.Role
 import io.cloak.os.debug.DebugPanel
 import androidx.compose.material3.CircularProgressIndicator
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
@@ -55,6 +57,28 @@ fun LockedScreen(paused: Boolean, onUnlock: () -> Unit) {
         body = stringResource(R.string.locked_body)
     ) {
         Button(onClick = onUnlock) { Text(stringResource(R.string.unlock)) }
+    }
+}
+
+@Composable
+fun UnpairedScreen() {
+    val context = LocalContext.current
+    val failedMsg = stringResource(R.string.unpaired_settings_failed)
+    CenteredPage(
+        title = stringResource(R.string.unpaired_title),
+        body = stringResource(R.string.unpaired_body)
+    ) {
+        Button(onClick = {
+            if (!openProfileSettings(context)) {
+                Toast.makeText(context, failedMsg, Toast.LENGTH_LONG).show()
+            }
+        }) { Text(stringResource(R.string.unpaired_open_settings)) }
+        Text(
+            stringResource(R.string.unpaired_where),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

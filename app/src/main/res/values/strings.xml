@@ -71,4 +71,9 @@
     <string name="lock_boot_desc">After the phone restarts, Cloak hides the apps that were open before. If this is off, they stay visible until you open Cloak, which then hides them and asks for the PIN again. They always need the work PIN either way.</string>
     <string name="lock_hide_all">Hide all packages (not implemented)</string>
     <string name="lock_hide_all_desc">Planned: also hide apps without a launcher icon. Not available yet.</string>
+    <string name="unpaired_title">Cloak cannot reach your Second Space</string>
+    <string name="unpaired_body">This copy of Cloak has lost its link to the space on this phone, most likely because Cloak\'s data was cleared. Your apps are still inside the space, but Cloak can no longer lock it, change its settings, or add and remove apps. The only way to start over is to remove the space in your phone\'s settings. That permanently deletes every app and all data in it.</string>
+    <string name="unpaired_open_settings">Open system settings</string>
+    <string name="unpaired_where">Look for the work profile under Accounts or Work profile and remove it. The wording differs by phone. When it is gone, come back here to create a new space.</string>
+    <string name="unpaired_settings_failed">Could not open settings. Open them yourself and look for the work profile.</string>
 </resources>

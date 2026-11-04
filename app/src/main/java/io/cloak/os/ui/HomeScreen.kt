@@ -91,7 +91,7 @@ fun HomeScreen() {
             SpaceState.UNLOCKED -> sendSession()
             SpaceState.PAUSED, SpaceState.LOCKED ->
                 Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
-            SpaceState.NONE -> Unit
+            SpaceState.NONE, SpaceState.UNPAIRED -> Unit
         }
     }
 
@@ -142,6 +142,7 @@ fun HomeScreen() {
                 )
             }
         )
+        SpaceState.UNPAIRED -> UnpairedScreen()
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
             onUnlock = {
