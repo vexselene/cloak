@@ -35,7 +35,7 @@ private tailrec fun Context.findActivity(): ComponentActivity = when (this) {
 }
 
 @Composable
-fun rememberSpaceState(): State<SpaceState> {
+fun rememberSpaceState(refreshKey: Int = 0): State<SpaceState> {
     val context = LocalContext.current
     val lifecycle = remember(context) { context.findActivity().lifecycle }
     val state = remember { mutableStateOf(SpaceStateReader.read(context)) }
@@ -84,6 +84,7 @@ fun rememberSpaceState(): State<SpaceState> {
             }
         }
     }
+    LaunchedEffect(refreshKey) { state.value = SpaceStateReader.read(context) }
     return state
 }
 

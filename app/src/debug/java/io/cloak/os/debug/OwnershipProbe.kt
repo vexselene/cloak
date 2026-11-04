@@ -10,6 +10,7 @@ import android.os.UserManager
 import android.util.Log
 import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.SpaceProfile
 
 object OwnershipProbe {
     private const val TAG = "SecondSpace/Probe"
@@ -43,6 +44,7 @@ object OwnershipProbe {
             "provisioning allowed: " +
                     dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
         )
+        out.appendLine("verdict: ${SpaceProfile.detect(context).owner}")
         return out.toString().also { Log.d(TAG, it) }
     }
 }
