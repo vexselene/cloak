@@ -28,7 +28,7 @@ import io.cloak.os.apps.SpaceApps
 
 private const val SAFETY_POLL_MS = 3_000L
 
-private tailrec fun Context.findActivity(): ComponentActivity = when (this) {
+internal tailrec fun Context.findActivity(): ComponentActivity = when (this) {
     is ComponentActivity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> error("no activity")

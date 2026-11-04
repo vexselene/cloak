@@ -58,7 +58,7 @@ private tailrec fun Context.hostActivity(): Activity = when (this) {
 
 /** Blocks screenshots and Recents thumbnails while it is in the composition. */
 @Composable
-private fun SecureWindow() {
+internal fun SecureWindow() {
     val context = LocalContext.current
     DisposableEffect(Unit) {
         val window = context.hostActivity().window
@@ -68,7 +68,7 @@ private fun SecureWindow() {
 }
 
 @Composable
-fun RecoverySetupScreen(modifier: Modifier = Modifier, onDone: () -> Unit) {
+fun RecoverySetupScreen(modifier: Modifier = Modifier, onRestore: () -> Unit = {}, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.INTRO) }
@@ -156,7 +156,8 @@ fun RecoverySetupScreen(modifier: Modifier = Modifier, onDone: () -> Unit) {
             Step.INTRO -> IntroStep(
                 enabled = enabled,
                 onCreate = { start() },
-                onTurnOff = { confirmOff = true }
+                onTurnOff = { confirmOff = true },
+                onRestore = onRestore
             )
             Step.SHOW -> token?.let {
                 ShowStep(
@@ -212,7 +213,7 @@ fun RecoverySetupScreen(modifier: Modifier = Modifier, onDone: () -> Unit) {
 }
 
 @Composable
-private fun IntroStep(enabled: Boolean, onCreate: () -> Unit, onTurnOff: () -> Unit) {
+private fun IntroStep(enabled: Boolean, onCreate: () -> Unit, onTurnOff: () -> Unit, onRestore: () -> Unit) {
     Text(stringResource(R.string.recovery_intro), style = MaterialTheme.typography.bodyMedium)
     Text(
         stringResource(R.string.recovery_intro_risk),
@@ -231,6 +232,9 @@ private fun IntroStep(enabled: Boolean, onCreate: () -> Unit, onTurnOff: () -> U
         Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.recovery_create))
         }
+    }
+    TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.restore_from_settings))
     }
 }
 
@@ -323,7 +327,7 @@ private fun writeToken(context: Context, uri: Uri, token: String): Boolean = run
 }.onFailure { Logx.e(TAG, "export failed", it) }.isSuccess
 
 /** Reads at most 4 KB, so a wrong file cannot cost memory or time. */
-private fun readSmall(context: Context, uri: Uri): String? = runCatching {
+internal fun readSmall(context: Context, uri: Uri): String? = runCatching {
     context.contentResolver.openInputStream(uri)?.use { input ->
         val buf = ByteArray(MAX_IMPORT_BYTES)
         var n = 0

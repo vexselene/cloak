@@ -33,7 +33,25 @@ and privacy tool, not a hardened security product.
 - No backup. Deleting the space deletes its data.
 - Release builds log only exception class names. Debug builds log more.
 - Optional recovery token: when the user opts in, the space copy stores a key derived
-    from the token (never the token) in device-protected storage, next to the pairing
-    secret. Anyone who can read that storage can already control the space. Setting up
-    the token over the signed channel is protected by the same checks as any command.
-    The recover entry point is added in a later step and gets its own entry.
+  from the token (never the token) in device-protected storage, next to the pairing
+  secret. Anyone who can read that storage can already control the space.
+- The recover command is the one command accepted without a signature, because the
+  signature secret is exactly what the user has lost. Any app on the phone can send it.
+  It is accepted only if all of these hold: recovery was opted into, the space is
+  unlocked, the attempt is not rate limited (the first three wrong proofs are free,
+  then 30 s, 2 min, 10 min, 1 h and 6 h), the request is well formed, the timestamp
+  is within five minutes and newer than the last accepted request, and the proof (an
+  HMAC over the new secret and the timestamp, keyed from the token) is valid. A guess
+  has about 2^-130 chance. Failed attempts are counted before comparing.
+- A valid proof does not pair by itself. The space then asks for the work lock through
+  the system credential screen, and the new secret takes effect only after the user
+  confirms it. A thief with the token but not the PIN cannot re-pair. If the work lock
+  is the same as the phone lock, this is the phone PIN, not a second secret.
+- The new secret travels from the main copy to the space copy inside the recover
+  intent. Other apps cannot read another app's intents.
+- Any app can block recovery for a while by sending bad proofs, which triggers the
+  lockout. Normal commands are unaffected.
+- A recover request shows toasts in the space. An app spamming it would annoy the
+  user, but nothing else.
+- Setting the phone's clock back after a recovery makes the next recovery fail until
+  the clock catches up.
