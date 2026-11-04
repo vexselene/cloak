@@ -38,7 +38,7 @@ import androidx.compose.ui.draw.alpha
 private const val TAG = "SecondSpace/Settings"
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {}) {
     val reachableMsg = stringResource(R.string.maint_reachable)
     val unreachableMsg = stringResource(R.string.maint_unreachable)
     val sendFailedMsg = stringResource(R.string.privacy_send_failed)
@@ -132,6 +132,16 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(R.string.maint_repair)) }
+        HorizontalDivider()
+        Text(stringResource(R.string.recovery_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.recovery_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = onOpenRecovery, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.recovery_open))
+        }
         HorizontalDivider()
         OutlinedButton(
             onClick = { confirmDelete = true },

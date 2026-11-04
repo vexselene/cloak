@@ -58,6 +58,10 @@ object SpikeRunner {
             }
             "probe_status" -> ScreenProbe.status(context)
             "battery" -> openBattery(context)
+            "pin" -> {
+                context.startActivity(Intent(context, PinProbeActivity::class.java))
+                "PIN probe launched"
+            }
             else -> "unknown spike op: $op"
         }
     }

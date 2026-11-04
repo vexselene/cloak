@@ -26,6 +26,10 @@ object Commands {
     const val SESSION = "session"
     const val SET_LOCK_MODE = "set_lock_mode"
 
+    const val SET_RECOVERY = "set_recovery"
+
+    const val CLEAR_RECOVERY = "clear_recovery"
+
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 
     private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")

@@ -16,7 +16,8 @@ import io.cloak.os.bridge.PrivacySettings
 import io.cloak.os.common.Logx
 import io.cloak.os.debug.SpikeRunner
 import io.cloak.os.bridge.LockSettings
-
+import io.cloak.os.bridge.RecoveryStore
+import io.cloak.os.bridge.RecoveryToken
 class CommandActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +101,16 @@ class CommandActivity : Activity() {
                     SessionManager.onSettingsChanged(this, old, s)
                 }
             }
+            Commands.SET_RECOVERY ->
+                if (RecoveryToken.isValidKey(arg) && RecoveryStore.saveKey(this, arg)) {
+                    Logx.d(TAG, "recovery key stored")
+                    toast(R.string.toast_recovery_set)
+                } else {
+                    Logx.w(TAG, "recovery key rejected")
+                    toast(R.string.toast_action_failed)
+                }
+            Commands.CLEAR_RECOVERY ->
+                if (RecoveryStore.clearKey(this)) toast(R.string.toast_recovery_cleared)
             else -> Logx.w(TAG, "unknown command")
         }
         return false

@@ -25,6 +25,8 @@ import io.cloak.os.common.Role
 import io.cloak.os.ui.rememberSpaceState
 import java.io.File
 import androidx.compose.runtime.LaunchedEffect
+import android.os.Handler
+import android.os.Looper
 
 private const val TAG = "SecondSpace/Debug"
 
@@ -97,6 +99,14 @@ private fun SpikePanel(context: Context) {
     Pair("Probe: service", { spike("probe_fgs") }, "Probe: plain", { spike("probe_plain") })
     Pair("Probe status", { spike("probe_status") }, "Stop probe", { spike("probe_stop") })
     Button(onClick = { spike("battery") }, modifier = Modifier.fillMaxWidth()) { Text("Battery exemption") }
+    Text("Spike 3: work PIN prompt")
+    Pair(
+        "PIN prompt now", { spike("pin") },
+        "Lock, then PIN (4 s)", {
+            Commands.send(context, Commands.LOCK_NOW)
+            Handler(Looper.getMainLooper()).postDelayed({ spike("pin") }, 4_000L)
+        }
+    )
 }
 
 private fun fileTest(context: Context) {
