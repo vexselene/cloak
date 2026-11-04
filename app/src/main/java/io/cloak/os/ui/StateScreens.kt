@@ -31,6 +31,12 @@ import io.cloak.os.debug.DebugPanel
 import androidx.compose.material3.CircularProgressIndicator
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
@@ -85,32 +91,38 @@ fun UnpairedScreen() {
 @Composable
 private fun CenteredPage(title: String, body: String, actions: @Composable ColumnScope.() -> Unit) {
     Scaffold(containerColor = Color.Transparent) { inner ->
-        Column(
-            Modifier.fillMaxSize().padding(inner).padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
-        ) {
-            Box(
-                Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
+        BoxWithConstraints(Modifier.fillMaxSize().padding(inner)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight)
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
             ) {
-                Icon(
-                    Icons.Default.Lock,
-                    contentDescription = null,
-                    modifier = Modifier.size(44.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                Box(
+                    Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Text(
+                    body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(8.dp))
+                actions()
+                DebugPanel(Role.MAIN)
             }
-            Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-            Text(
-                body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(8.dp))
-            actions()
-            DebugPanel(Role.MAIN)
         }
     }
 }
