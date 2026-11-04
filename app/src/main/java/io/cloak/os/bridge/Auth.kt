@@ -36,6 +36,9 @@ object Auth {
         prefs(context).edit().putString(KEY_SECRET, secret).commit()
     }
 
+    fun hasSecret(context: Context): Boolean =
+        prefs(context).getString(KEY_SECRET, null) != null
+
     fun storeFromProvisioning(context: Context, intent: Intent) {
         @Suppress("DEPRECATION")
         val extras = intent.getParcelableExtra<PersistableBundle>(
