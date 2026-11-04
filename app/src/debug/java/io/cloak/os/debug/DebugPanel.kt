@@ -24,12 +24,17 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.common.Role
 import io.cloak.os.ui.rememberSpaceState
 import java.io.File
+import androidx.compose.runtime.LaunchedEffect
 
 private const val TAG = "SecondSpace/Debug"
 
 @Composable
 fun DebugPanel(role: Role) {
     val context = LocalContext.current
+    if (role == Role.MAIN) {
+        val probeState by rememberSpaceState()
+        LaunchedEffect(probeState) { OwnershipProbe.run(context) }
+    }
     var open by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = { open = !open }) { Text(if (open) "Hide debug" else "Debug") }
@@ -48,6 +53,11 @@ fun DebugPanel(role: Role) {
                     }) { Text("Ping") }
                     Button(onClick = { fileTest(context) }) { Text("File test") }
                 }
+                var probe by remember { mutableStateOf("") }
+                Button(onClick = { probe = OwnershipProbe.run(context) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Probe ownership")
+                }
+                if (probe.isNotEmpty()) Text(probe)
                 SpikePanel(context)
             } else {
                 val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }
