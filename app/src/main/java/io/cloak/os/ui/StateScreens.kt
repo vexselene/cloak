@@ -36,7 +36,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.remember
+import io.cloak.os.bridge.SpaceProfile
 
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
@@ -74,6 +76,9 @@ fun UnpairedScreen() {
         title = stringResource(R.string.unpaired_title),
         body = stringResource(R.string.unpaired_body)
     ) {
+        OutlinedButton(onClick = {}, enabled = false) {
+            Text(stringResource(R.string.unpaired_recover))
+        }
         Button(onClick = {
             if (!openProfileSettings(context)) {
                 Toast.makeText(context, failedMsg, Toast.LENGTH_LONG).show()
@@ -85,6 +90,32 @@ fun UnpairedScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+@Composable
+fun ForeignScreen(onCheckAgain: () -> Unit) {
+    val context = LocalContext.current
+    val failedMsg = stringResource(R.string.unpaired_settings_failed)
+    val cloakInside = remember { SpaceProfile.detect(context).cloakInside }
+    CenteredPage(
+        title = stringResource(R.string.foreign_title),
+        body = stringResource(R.string.foreign_body)
+    ) {
+        Button(onClick = onCheckAgain) { Text(stringResource(R.string.foreign_check)) }
+        OutlinedButton(onClick = {
+            if (!openProfileSettings(context)) {
+                Toast.makeText(context, failedMsg, Toast.LENGTH_LONG).show()
+            }
+        }) { Text(stringResource(R.string.foreign_open_settings)) }
+        if (cloakInside) {
+            Text(
+                stringResource(R.string.foreign_tip),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

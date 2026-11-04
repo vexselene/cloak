@@ -49,6 +49,7 @@ import androidx.compose.runtime.snapshotFlow
 import io.cloak.os.bridge.LockSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.runtime.mutableIntStateOf
 
 private const val TAG = "SecondSpace/Home"
 
@@ -59,7 +60,8 @@ fun HomeScreen() {
     val context = LocalContext.current
     val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }
     val scope = rememberCoroutineScope()
-    val state by rememberSpaceState()
+    var checkTick by remember { mutableIntStateOf(0) }
+    val state by rememberSpaceState(checkTick)
     var page by remember { mutableStateOf(Page.GRID) }
 
     LaunchedEffect(state) { if (state != SpaceState.UNLOCKED) page = Page.GRID }
@@ -91,7 +93,7 @@ fun HomeScreen() {
             SpaceState.UNLOCKED -> sendSession()
             SpaceState.PAUSED, SpaceState.LOCKED ->
                 Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
-            SpaceState.NONE, SpaceState.UNPAIRED -> Unit
+            SpaceState.NONE, SpaceState.UNPAIRED, SpaceState.FOREIGN -> Unit
         }
     }
 
@@ -143,6 +145,7 @@ fun HomeScreen() {
             }
         )
         SpaceState.UNPAIRED -> UnpairedScreen()
+        SpaceState.FOREIGN -> ForeignScreen(onCheckAgain = { checkTick++ })
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
             onUnlock = {
