@@ -9,7 +9,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-
+import android.provider.DocumentsContract
 class ShareProbeActivity : Activity() {
     private lateinit var out: TextView
     private var uris: List<Uri> = emptyList()
@@ -44,7 +44,16 @@ class ShareProbeActivity : Activity() {
         reading = true
         say(if (slow) "reading slowly..." else "reading...")
         Thread {
-            uris.forEach { uri -> say(TransferProbeUtil.inspect(this, uri, slow)) }
+            uris.forEach { uri ->
+                when {
+                    TransferProbeUtil.isPureTree(uri) -> TransferProbeUtil.testTree(this, uri, this::say)
+                    DocumentsContract.isDocumentUri(this, uri) -> {
+                        say(TransferProbeUtil.inspect(this, uri, slow))
+                        TransferProbeUtil.testDoc(this, uri, this::say)
+                    }
+                    else -> say(TransferProbeUtil.inspect(this, uri, slow))
+                }
+            }
             say("done")
             reading = false
         }.start()

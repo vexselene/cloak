@@ -10,9 +10,154 @@ import android.os.SystemClock
 import android.os.UserManager
 import android.provider.OpenableColumns
 import android.util.Log
+import android.provider.DocumentsContract
 
 object TransferProbeUtil {
     const val TAG = "SecondSpace/Transfer"
+    const val TEST_FOLDER = "cloak-probe-folder"
+    const val PROBE_DOC_PREFIX = "cloak-probe-doc-"
+    private const val MAX_WALK = 3000
+    private const val MAX_READ = 512L shl 20
+    private val PAYLOAD = "cloak transfer probe 0123456789".repeat(32).toByteArray()
+
+    class Child(val id: String, val name: String, val mime: String, val size: Long) {
+        val isDir: Boolean get() = mime == DocumentsContract.Document.MIME_TYPE_DIR
+    }
+
+    fun isPureTree(uri: Uri): Boolean =
+        uri.pathSegments.size == 2 && uri.pathSegments[0] == "tree"
+
+    private fun hasGrant(context: Context, uri: Uri, flag: Int) =
+        context.checkUriPermission(uri, Process.myPid(), Process.myUid(), flag) ==
+                PackageManager.PERMISSION_GRANTED
+
+    private fun step(say: (String) -> Unit, name: String, block: () -> String) {
+        say("  $name: " + runCatching(block).getOrElse { "FAILED ${it.javaClass.simpleName}: ${it.message}" })
+    }
+
+    private fun children(context: Context, tree: Uri, parentId: String): List<Child> {
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
+        val cols = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE
+        )
+        val out = ArrayList<Child>()
+        context.contentResolver.query(uri, cols, null, null, null)?.use { c ->
+            while (c.moveToNext()) {
+                out.add(
+                    Child(c.getString(0), c.getString(1) ?: "?", c.getString(2) ?: "",
+                        if (c.isNull(3)) -1L else c.getLong(3))
+                )
+            }
+        }
+        return out
+    }
+
+    /** Exercises a folder grant received from the other profile. Only touches its own probe files. */
+    fun testTree(context: Context, tree: Uri, say: (String) -> Unit) {
+        val resolver = context.contentResolver
+        say("tree: $tree")
+        say(
+            "  grants: read=${hasGrant(context, tree, Intent.FLAG_GRANT_READ_URI_PERMISSION)} " +
+                    "write=${hasGrant(context, tree, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)}"
+        )
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
+        val all = ArrayList<Child>()
+        step(say, "walk") {
+            val t0 = SystemClock.elapsedRealtime()
+            val stack = ArrayDeque<String>()
+            stack.add(rootId)
+            while (stack.isNotEmpty() && all.size < MAX_WALK) {
+                for (c in children(context, tree, stack.removeLast())) {
+                    all.add(c)
+                    if (c.isDir) stack.add(c.id)
+                }
+            }
+            val ms = SystemClock.elapsedRealtime() - t0
+            "${all.count { !it.isDir }} files, ${all.count { it.isDir }} folders, " +
+                    "${all.sumOf { maxOf(it.size, 0L) }} bytes listed in $ms ms" +
+                    if (all.size >= MAX_WALK) " (stopped at $MAX_WALK entries)" else ""
+        }
+        step(say, "read all") {
+            val t0 = SystemClock.elapsedRealtime()
+            val buf = ByteArray(64 * 1024)
+            var n = 0
+            var total = 0L
+            for (f in all.filter { !it.isDir }) {
+                if (total >= MAX_READ) break
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, f.id)
+                resolver.openInputStream(uri)?.use { input ->
+                    while (true) {
+                        val r = input.read(buf)
+                        if (r < 0) break
+                        total += r
+                    }
+                }
+                n++
+            }
+            val ms = SystemClock.elapsedRealtime() - t0
+            "$n files, $total bytes in $ms ms" + (if (n > 0) " (${ms / n} ms per file)" else "") +
+                    (if (total >= MAX_READ) ", stopped at the size cap" else "")
+        }
+        val root = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
+        var doc: Uri? = null
+        step(say, "create") {
+            doc = DocumentsContract.createDocument(
+                resolver, root, "text/plain", "cloak-probe-${System.currentTimeMillis()}.txt"
+            )
+            doc?.toString() ?: "null returned"
+        }
+        doc?.let { d ->
+            step(say, "write") {
+                resolver.openOutputStream(d, "w")!!.use { it.write(PAYLOAD) }
+                "${PAYLOAD.size} bytes"
+            }
+            step(say, "read back") {
+                val back = resolver.openInputStream(d)!!.use { it.readBytes() }
+                if (back.contentEquals(PAYLOAD)) "matches" else "MISMATCH, got ${back.size} bytes"
+            }
+            step(say, "delete") {
+                if (DocumentsContract.deleteDocument(resolver, d)) "deleted" else "refused"
+            }
+        }
+        step(say, "delete $TEST_FOLDER") {
+            val folder = all.firstOrNull { it.isDir && it.name == TEST_FOLDER }
+            when {
+                folder == null -> "none present"
+                DocumentsContract.deleteDocument(
+                    resolver, DocumentsContract.buildDocumentUriUsingTree(tree, folder.id)
+                ) -> "deleted with its contents"
+                else -> "refused"
+            }
+        }
+    }
+
+    /** Write, read back and delete a single forwarded file. Only runs on files this probe created. */
+    fun testDoc(context: Context, uri: Uri, say: (String) -> Unit) {
+        val resolver = context.contentResolver
+        val name = runCatching {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        }.getOrNull()
+        if (name == null || !name.startsWith(PROBE_DOC_PREFIX)) {
+            say("  not a probe file, skipping write and delete")
+            return
+        }
+        step(say, "write") {
+            resolver.openOutputStream(uri, "w")!!.use { it.write(PAYLOAD) }
+            "${PAYLOAD.size} bytes"
+        }
+        step(say, "read back") {
+            val back = resolver.openInputStream(uri)!!.use { it.readBytes() }
+            if (back.contentEquals(PAYLOAD)) "matches" else "MISMATCH, got ${back.size} bytes"
+        }
+        step(say, "delete") {
+            if (DocumentsContract.deleteDocument(resolver, uri)) "deleted" else "refused"
+        }
+    }
 
     fun where(context: Context): String {
         val managed = context.getSystemService(UserManager::class.java).isManagedProfile
