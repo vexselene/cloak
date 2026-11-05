@@ -13,6 +13,9 @@ import android.util.Log
 import android.widget.Toast
 import io.cloak.os.admin.SpaceAdminReceiver
 import io.cloak.os.bridge.Commands
+import android.content.IntentFilter
+import io.cloak.os.admin.PolicyManager
+import android.content.pm.PackageManager
 
 object SpikeRunner {
     private const val TAG = "SecondSpace/Spike"
@@ -61,6 +64,22 @@ object SpikeRunner {
             "pin" -> {
                 context.startActivity(Intent(context, PinProbeActivity::class.java))
                 "PIN probe launched"
+            }
+            "share_on" -> shareOn(context, dpm, admin, DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT, "space to personal only")
+            "share_on_both" -> shareOn(
+                context, dpm, admin,
+                DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
+                "both directions"
+            )
+            "enable" -> enableSystem(context, value)
+            "share_off" -> {
+                dpm.clearCrossProfileIntentFilters(admin)
+                PolicyManager.setupChannel(context)
+                "share filters cleared, command channel restored"
+            }
+            "picker" -> {
+                context.startActivity(Intent(context, TransferProbeActivity::class.java))
+                "Transfer tools launched"
             }
             else -> "unknown spike op: $op"
         }
@@ -144,5 +163,29 @@ object SpikeRunner {
                 "Opened battery optimization list"
             }.getOrElse { "Could not open battery settings" }
         }
+    }
+    private fun shareOn(
+        context: Context, dpm: DevicePolicyManager, admin: ComponentName, flags: Int, label: String
+    ): String {
+        listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE).forEach { action ->
+            val filter = IntentFilter(action).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addDataType("*/*")
+            }
+            dpm.addCrossProfileIntentFilter(admin, filter, flags)
+        }
+        val probe = Intent(Intent.ACTION_SEND).setType("application/octet-stream")
+        val hits = context.packageManager.queryIntentActivities(probe, PackageManager.MATCH_DEFAULT_ONLY)
+            .filter { it.activityInfo.packageName == "android" }
+            .map { it.activityInfo.name.substringAfterLast('.') }
+        return "filters added ($label). SEND forwarders: ${if (hits.isEmpty()) "none" else hits.joinToString()}"
+    }
+
+    private fun enableSystem(context: Context, pkg: String): String {
+        if (!Commands.isValidPackage(pkg)) return "bad package: $pkg"
+        return PolicyManager.enableSystemApp(context, pkg).fold(
+            onSuccess = { "enabled $pkg" },
+            onFailure = { "enable failed: ${it.javaClass.simpleName}: ${it.message}" }
+        )
     }
 }

@@ -27,7 +27,7 @@ import java.io.File
 import androidx.compose.runtime.LaunchedEffect
 import android.os.Handler
 import android.os.Looper
-
+import android.content.Intent
 private const val TAG = "SecondSpace/Debug"
 
 @Composable
@@ -100,6 +100,17 @@ private fun SpikePanel(context: Context) {
     Pair("Probe status", { spike("probe_status") }, "Stop probe", { spike("probe_stop") })
     Button(onClick = { spike("battery") }, modifier = Modifier.fillMaxWidth()) { Text("Battery exemption") }
     Text("Spike 3: work PIN prompt")
+    Text("Spike 4: share sheet filters (space to personal)")
+    Pair("Share filters ON", { spike("share_on") }, "ON (both directions)", { spike("share_on_both") })
+    Button(onClick = { spike("share_off") }, modifier = Modifier.fillMaxWidth()) { Text("Share filters OFF") }
+    Button(onClick = { spike("enable:$pkg") }, modifier = Modifier.fillMaxWidth()) {
+        Text("Enable system app in space (package above)")
+    }
+    Text("Spike 4 and 5: transfer tools")
+    Pair(
+        "Tools (personal)", { context.startActivity(Intent(context, TransferProbeActivity::class.java)) },
+        "Tools (space)", { spike("picker") }
+    )
     Pair(
         "PIN prompt now", { spike("pin") },
         "Lock, then PIN (4 s)", {

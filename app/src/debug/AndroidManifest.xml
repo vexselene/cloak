@@ -6,6 +6,30 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <queries>
+        <package android:name="com.android.documentsui" />
+        <package android:name="com.google.android.documentsui" />
+        <package android:name="com.google.android.apps.nbu.files" />
+        <package android:name="com.oplus.filemanager" />
+        <package android:name="com.coloros.filemanager" />
+        <intent><action android:name="android.intent.action.OPEN_DOCUMENT_TREE" /></intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CREATE_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
+
     <application>
         <service
             android:name=".debug.ProbeService"
@@ -21,5 +45,23 @@
             android:directBootAware="true"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name=".debug.ShareProbeActivity"
+            android:exported="true"
+            android:label="Cloak probe"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".debug.TransferProbeActivity"
+            android:exported="false"
+            android:label="Transfer probe"
+            android:theme="@android:style/Theme.DeviceDefault.Light" />
     </application>
 </manifest>
