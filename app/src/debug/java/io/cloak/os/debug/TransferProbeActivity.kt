@@ -34,6 +34,15 @@ class TransferProbeActivity : ComponentActivity() {
     ) { uri ->
         if (uri != null) createTest(uri) else say("create cancelled")
     }
+    private val pickForTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) sendGrant(uri, true) else say("cancelled")
+    }
+    private val pickForFile = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) shareChildFile(uri) else say("cancelled")
+    }
+    private val pickForFill = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) fillAndShare(uri) else say("cancelled")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +66,13 @@ class TransferProbeActivity : ComponentActivity() {
         button("Share 1 file (1 MB)") { shareTest(1, 1L shl 20) }
         button("Share 3 files (1 MB each)") { shareTest(3, 1L shl 20) }
         button("Share 1 large file (200 MB)") { shareTest(1, 200L shl 20) }
+        button("Share a folder grant (pick any folder)") { launchSafe("folder picker") { pickForTree.launch(null) } }
+        button("Share one file grant (pick a folder, a probe file is made in it)") {
+            launchSafe("folder picker") { pickForFile.launch(null) }
+        }
+        button("Fill a folder with 350 files, then share it (pick an EMPTY folder)") {
+            launchSafe("folder picker") { pickForFill.launch(null) }
+        }
         button("Pick folder (list, create, write, read, delete)") { launchSafe("folder picker") { pickTree.launch(null) } }
         button("Pick file (read test)") { launchSafe("file picker") { pickFile.launch(arrayOf("*/*")) } }
         button("Create file (write test)") { launchSafe("create file") { createFile.launch("cloak-probe.txt") } }
@@ -243,6 +259,61 @@ class TransferProbeActivity : ComponentActivity() {
             val before = bridgeSize()
             val ok = bridgeDir().deleteRecursively()
             say("cleared cache/bridge: ${before / 1048576} MB freed, ok=$ok")
+        }.start()
+    }
+
+    private fun sendGrant(uri: Uri, prefix: Boolean) {
+        val send = Intent(Intent.ACTION_SEND).setType("*/*").putExtra(Intent.EXTRA_STREAM, uri)
+        send.clipData = ClipData.newRawUri("grant", uri)
+        var flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        if (prefix) flags = flags or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        send.addFlags(flags)
+        say("sharing $uri")
+        runCatching { startActivity(Intent.createChooser(send, "Share grant")) }
+            .onFailure { say("  share FAILED: ${it.javaClass.simpleName}: ${it.message}") }
+    }
+
+    private fun shareChildFile(tree: Uri) {
+        Thread {
+            val doc = runCatching {
+                val root = DocumentsContract.buildDocumentUriUsingTree(
+                    tree, DocumentsContract.getTreeDocumentId(tree)
+                )
+                DocumentsContract.createDocument(
+                    contentResolver, root, "text/plain",
+                    TransferProbeUtil.PROBE_DOC_PREFIX + System.currentTimeMillis() + ".txt"
+                )!!.also { d -> contentResolver.openOutputStream(d, "w")!!.use { it.write(payload) } }
+            }.onFailure { say("create FAILED: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
+            if (doc != null) runOnUiThread { sendGrant(doc, false) }
+        }.start()
+    }
+
+    private fun fillAndShare(tree: Uri) {
+        Thread {
+            val t0 = System.currentTimeMillis()
+            val ok = runCatching {
+                val resolver = contentResolver
+                val root = DocumentsContract.buildDocumentUriUsingTree(
+                    tree, DocumentsContract.getTreeDocumentId(tree)
+                )
+                val chunk = ByteArray(4096) { (it % 251).toByte() }
+                fun put(parent: Uri, name: String) {
+                    val d = DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name)!!
+                    resolver.openOutputStream(d, "w")!!.use { it.write(chunk) }
+                }
+                val folder = DocumentsContract.createDocument(
+                    resolver, root, DocumentsContract.Document.MIME_TYPE_DIR, TransferProbeUtil.TEST_FOLDER
+                )!!
+                repeat(300) { put(folder, "f$it.bin") }
+                val sub = DocumentsContract.createDocument(
+                    resolver, folder, DocumentsContract.Document.MIME_TYPE_DIR, "sub"
+                )!!
+                repeat(50) { put(sub, "s$it.bin") }
+            }.onFailure { say("fill FAILED: ${it.javaClass.simpleName}: ${it.message}") }.isSuccess
+            if (ok) {
+                say("created 350 files in ${System.currentTimeMillis() - t0} ms")
+                runOnUiThread { sendGrant(tree, true) }
+            }
         }.start()
     }
 }
