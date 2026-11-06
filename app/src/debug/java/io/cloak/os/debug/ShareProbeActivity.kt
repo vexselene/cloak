@@ -14,6 +14,7 @@ class ShareProbeActivity : Activity() {
     private lateinit var out: TextView
     private var uris: List<Uri> = emptyList()
     private var throttleMs = 0L
+    private var keep = false
     @Volatile private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,14 +30,26 @@ class ShareProbeActivity : Activity() {
         }
         button("Read now") { runChecks(slow = false, onlySpecial = false) }
         button("Read slowly (about 2 MB/s)") { runChecks(slow = true, onlySpecial = false) }
-        button("Copy into a folder (pick destination)") { pickDestination(0L) }
-        button("Copy slowly (100 ms per file)") { pickDestination(100L) }
+        button("Copy into a folder (pick destination)") { pickDestination(0L, false) }
+        button("Copy slowly (100 ms per file)") { pickDestination(100L, false) }
+        button("Copy slowly, keep if interrupted (resume test)") { pickDestination(100L, true) }
+        button("Release the source grants I took") {
+            uris.forEach { TransferProbeUtil.release(this, it) }
+            say("released source grants")
+        }
         column.addView(out)
         setContentView(ScrollView(this).apply { addView(column) })
 
         say("Received in: ${TransferProbeUtil.where(this)}")
         say("action=${intent.action} type=${intent.type} uris=${uris.size}")
-        uris.forEach { say("  received uri: $it") }
+        uris.forEach { uri ->
+            say("  received uri: $uri")
+            if (savedInstanceState == null &&
+                (TransferProbeUtil.isPureTree(uri) || TransferProbeUtil.isDocPath(uri))
+            ) {
+                say("  source grant: " + TransferProbeUtil.persist(this, uri, false))
+            }
+        }
         if (savedInstanceState == null) runChecks(slow = false, onlySpecial = true)
     }
 
@@ -68,12 +81,13 @@ class ShareProbeActivity : Activity() {
     }
 
     @Suppress("DEPRECATION")
-    private fun pickDestination(throttle: Long) {
+    private fun pickDestination(throttle: Long, keepResult: Boolean) {
         if (busy) {
             say("busy")
             return
         }
         throttleMs = throttle
+        keep = keepResult
         runCatching { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_DEST) }
             .onFailure { say("folder picker could not start: ${it.javaClass.simpleName}: ${it.message}") }
     }
@@ -84,15 +98,17 @@ class ShareProbeActivity : Activity() {
         val dest = data?.data
         if (requestCode != REQUEST_DEST || resultCode != RESULT_OK || dest == null) return
         busy = true
+        say("  destination grant: " + TransferProbeUtil.persist(this, dest, true))
         Thread {
             uris.forEach { uri ->
                 say("copy: $uri")
                 if (TransferProbeUtil.isPureTree(uri)) {
-                    TransferProbeUtil.copyTree(this, uri, dest, throttleMs, this::say)
+                    TransferProbeUtil.copyTree(this, uri, dest, throttleMs, keep, this::say)
                 } else {
                     TransferProbeUtil.copyOne(this, uri, dest, throttleMs, this::say)
                 }
             }
+            TransferProbeUtil.release(this, dest)
             say("copy done")
             busy = false
         }.start()

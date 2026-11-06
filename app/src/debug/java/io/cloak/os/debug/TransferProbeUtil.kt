@@ -11,6 +11,7 @@ import android.os.UserManager
 import android.provider.OpenableColumns
 import android.util.Log
 import android.provider.DocumentsContract
+import android.content.ContentResolver
 
 object TransferProbeUtil {
     const val TAG = "SecondSpace/Transfer"
@@ -272,33 +273,48 @@ object TransferProbeUtil {
     }
 
     /** Pulls a folder through a forwarded grant into a folder picked in this profile. */
-    fun copyTree(context: Context, source: Uri, destTree: Uri, throttleMs: Long, say: (String) -> Unit) {
+    /** Pulls a folder through a forwarded grant into a folder picked in this profile. */
+    fun copyTree(
+        context: Context, source: Uri, destTree: Uri, throttleMs: Long, keep: Boolean, say: (String) -> Unit
+    ) {
         val resolver = context.contentResolver
         val dirMime = DocumentsContract.Document.MIME_TYPE_DIR
         var files = 0
+        var skipped = 0
         var folders = 0
         var bytes = 0L
         var failures = 0
         var mismatches = 0
+        var aborted = false
         val t0 = SystemClock.elapsedRealtime()
         val destRoot = DocumentsContract.buildDocumentUriUsingTree(
             destTree, DocumentsContract.getTreeDocumentId(destTree)
         )
-        val copyRoot = runCatching {
-            DocumentsContract.createDocument(resolver, destRoot, dirMime, "probe-copy-${System.currentTimeMillis()}")
-        }.getOrNull()
+
+        fun existing(dir: Uri): Map<String, Child> =
+            if (!keep) emptyMap() else runCatching {
+                children(context, destTree, DocumentsContract.getDocumentId(dir)).associateBy { it.name }
+            }.getOrDefault(emptyMap())
+
+        val rootName = if (keep) "probe-copy-keep" else "probe-copy-${System.currentTimeMillis()}"
+        val copyRoot = existing(destRoot)[rootName]
+            ?.let { DocumentsContract.buildDocumentUriUsingTree(destTree, it.id) }
+            ?: runCatching { DocumentsContract.createDocument(resolver, destRoot, dirMime, rootName) }.getOrNull()
         if (copyRoot == null) {
             say("  could not create the copy folder in the destination")
             return
         }
 
         fun copyDir(srcId: String, destDir: Uri) {
+            val have = existing(destDir)
             for (child in children(context, source, srcId)) {
-                if (files + failures >= MAX_COPY) return
+                if (files + skipped + failures >= MAX_COPY) return
                 if (child.isDir) {
-                    val d = runCatching {
-                        DocumentsContract.createDocument(resolver, destDir, dirMime, child.name)
-                    }.getOrNull()
+                    val d = have[child.name]?.takeIf { it.isDir }
+                        ?.let { DocumentsContract.buildDocumentUriUsingTree(destTree, it.id) }
+                        ?: runCatching {
+                            DocumentsContract.createDocument(resolver, destDir, dirMime, child.name)
+                        }.getOrNull()
                     if (d == null) {
                         failures++
                         continue
@@ -306,6 +322,15 @@ object TransferProbeUtil {
                     folders++
                     copyDir(child.id, d)
                 } else {
+                    val prior = have[child.name]
+                    if (prior != null && !prior.isDir) {
+                        if (child.size >= 0 && prior.size == child.size) {
+                            skipped++
+                            continue
+                        }
+                        // A partial file from an earlier attempt. Remove it so the name stays clean.
+                        deleteRetry(resolver, DocumentsContract.buildDocumentUriUsingTree(destTree, prior.id))
+                    }
                     runCatching {
                         val srcDoc = DocumentsContract.buildDocumentUriUsingTree(source, child.id)
                         val mime = child.mime.ifEmpty { "application/octet-stream" }
@@ -314,22 +339,28 @@ object TransferProbeUtil {
                         if (child.size >= 0 && n != child.size) mismatches++
                         files++
                         bytes += n
-                        if (files % 50 == 0) say("  progress: $files files")
+                        if ((files + skipped) % 50 == 0) say("  progress: ${files + skipped} files")
                     }.onFailure { failures++ }
                 }
             }
         }
 
         runCatching { copyDir(DocumentsContract.getTreeDocumentId(source), copyRoot) }
-            .onFailure { say("  copy aborted: ${it.javaClass.simpleName}: ${it.message}") }
+            .onFailure {
+                aborted = true
+                say("  copy aborted: ${it.javaClass.simpleName}: ${it.message}")
+            }
         val ms = SystemClock.elapsedRealtime() - t0
         say(
-            "  copied $files files, $folders folders, $bytes bytes in $ms ms" +
+            "  copied $files files ($skipped already there), $folders folders, $bytes bytes in $ms ms" +
                     (if (files > 0) " (${ms / files} ms per file)" else "") +
                     ", failures=$failures, size mismatches=$mismatches"
         )
-        val removed = runCatching { DocumentsContract.deleteDocument(resolver, copyRoot) }.getOrDefault(false)
-        say("  removed the copy: $removed")
+        if (keep && (aborted || failures > 0)) {
+            say("  incomplete: kept probe-copy-keep so a second run can resume. Delete it by hand when done")
+            return
+        }
+        say("  removed the copy: ${deleteRetry(resolver, copyRoot)}")
     }
 
     /** Pulls one file (any readable URI) into a folder picked in this profile and reports the speed. */
@@ -349,5 +380,30 @@ object TransferProbeUtil {
             say("  copied $n bytes in $ms ms (${"%.1f".format(mbs)} MB/s)")
             say("  removed the copy: ${DocumentsContract.deleteDocument(resolver, d)}")
         }.onFailure { say("  copy FAILED: ${it.javaClass.simpleName}: ${it.message}") }
+    }
+
+    fun persist(context: Context, uri: Uri, write: Boolean): String {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                (if (write) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+        return runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, flags)
+            "persisted"
+        }.getOrElse { "NOT persisted: ${it.javaClass.simpleName}: ${it.message}" }
+    }
+
+    fun release(context: Context, uri: Uri) {
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        }
+    }
+
+    private fun deleteRetry(resolver: ContentResolver, uri: Uri): Boolean {
+        repeat(5) { i ->
+            if (runCatching { DocumentsContract.deleteDocument(resolver, uri) }.getOrDefault(false)) return true
+            Thread.sleep(200L * (i + 1))
+        }
+        return false
     }
 }
