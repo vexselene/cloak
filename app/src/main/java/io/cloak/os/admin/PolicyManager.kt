@@ -13,6 +13,7 @@ import io.cloak.os.common.Logx
 import io.cloak.os.common.Role
 import android.Manifest
 import android.os.Build
+import io.cloak.os.bridge.TransferSettings
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
@@ -58,6 +59,19 @@ object PolicyManager {
                     DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or
                             DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
                 )
+            }
+            step("share filters") {
+                if (agent && TransferSettings.load(context).shareFromSpace) {
+                    val both = DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or
+                            DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                    listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE).forEach { action ->
+                        val f = IntentFilter(action).apply {
+                            addCategory(Intent.CATEGORY_DEFAULT)
+                            addDataType("*/*")
+                        }
+                        dpm.addCrossProfileIntentFilter(admin, f, both)
+                    }
+                }
             }
             step("work lock") { requireWorkLock(context).getOrThrow() }
             step("installs") { allowInstalls(context).getOrThrow() }
