@@ -5,15 +5,17 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -135,20 +137,18 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedButton(
-                onClick = {
-                    val ok = FolderPicker.enableInSpace(context)
-                    Toast.makeText(context, if (ok) pickerSentMsg else pickerNoneMsg, Toast.LENGTH_LONG).show()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.picker_enable)) }
+            CompactButton(R.string.picker_enable, onClick = {
+                val ok = FolderPicker.enableInSpace(context)
+                Toast.makeText(context, if (ok) pickerSentMsg else pickerNoneMsg, Toast.LENGTH_LONG).show()
+            })
         }
 
         SettingsGroup(R.string.settings_group_lock) {
-            Button(
+            CompactButton(
+                R.string.set_lock,
                 onClick = { Commands.send(context, Commands.SET_LOCK) },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.set_lock)) }
+                filled = true
+            )
         }
 
         SettingsGroup(R.string.maint_title) {
@@ -157,20 +157,16 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedButton(
-                onClick = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactButton(R.string.maint_check, onClick = {
                     val ok = SpaceMaintenance.check(context).isSuccess
                     Toast.makeText(context, if (ok) reachableMsg else unreachableMsg, Toast.LENGTH_LONG).show()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.maint_check)) }
-            OutlinedButton(
-                onClick = {
+                })
+                CompactButton(R.string.maint_repair, onClick = {
                     val msg = if (SpaceMaintenance.repair(context).isSuccess) repairSentMsg else repairFailedMsg
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.maint_repair)) }
+                })
+            }
         }
 
         SettingsGroup(R.string.recovery_title) {
@@ -179,17 +175,11 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedButton(onClick = onOpenRecovery, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.recovery_open))
-            }
+            CompactButton(R.string.recovery_open, onClick = onOpenRecovery)
         }
 
         SettingsGroup(R.string.settings_group_danger) {
-            OutlinedButton(
-                onClick = { confirmDelete = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) { Text(stringResource(R.string.delete_space)) }
+            CompactButton(R.string.delete_space, onClick = { confirmDelete = true }, danger = true)
         }
     }
 
@@ -222,15 +212,51 @@ private fun SettingsGroup(@StringRes title: Int, content: @Composable ColumnScop
             modifier = Modifier.padding(start = 12.dp)
         )
         Surface(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         ) {
             Column(
                 Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 content = content
             )
         }
+    }
+}
+
+@Composable
+private fun CompactButton(
+    @StringRes label: Int,
+    onClick: () -> Unit,
+    filled: Boolean = false,
+    danger: Boolean = false,
+    enabled: Boolean = true
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val padding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+    val modifier = Modifier.height(36.dp)
+    if (filled) {
+        FilledTonalButton(
+            onClick = onClick,
+            modifier = modifier,
+            enabled = enabled,
+            shape = shape,
+            contentPadding = padding
+        ) { Text(stringResource(label), style = MaterialTheme.typography.labelMedium) }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier,
+            enabled = enabled,
+            shape = shape,
+            colors = if (danger) {
+                ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            } else {
+                ButtonDefaults.outlinedButtonColors()
+            },
+            contentPadding = padding
+        ) { Text(stringResource(label), style = MaterialTheme.typography.labelMedium) }
     }
 }
 

@@ -14,11 +14,11 @@ import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
 
-object SquircleMath {
+object PebbleMath {
     const val STEPS = 96
 
-    /** 2 is a circle, large values approach a square. 4 to 5 looks like One UI. */
-    const val EXPONENT = 4.5
+    /** 2 is a circle and 4.5 was the earlier squircle. Around 3 gives a rounder, softer pebble. */
+    const val EXPONENT = 3.2
 
     /** x,y pairs, clockwise from the right-hand middle, inside a width by height box. */
     fun points(width: Float, height: Float, steps: Int = STEPS): FloatArray {
@@ -37,18 +37,18 @@ object SquircleMath {
     }
 }
 
-object Squircle {
+object Pebble {
     fun androidPath(size: Float): AndroidPath = AndroidPath().apply {
-        val p = SquircleMath.points(size, size)
+        val p = PebbleMath.points(size, size)
         moveTo(p[0], p[1])
         for (i in 1 until p.size / 2) lineTo(p[2 * i], p[2 * i + 1])
         close()
     }
 }
 
-object SquircleShape : Shape {
+object PebbleShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val p = SquircleMath.points(size.width, size.height)
+        val p = PebbleMath.points(size.width, size.height)
         val path = Path().apply {
             moveTo(p[0], p[1])
             for (i in 1 until p.size / 2) lineTo(p[2 * i], p[2 * i + 1])

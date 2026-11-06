@@ -7,7 +7,7 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
-import io.cloak.os.ui.theme.Squircle
+import io.cloak.os.ui.theme.Pebble
 
 object IconRenderer {
     private const val LEGACY_BACKGROUND = 0xFFEDEFF3
@@ -19,7 +19,7 @@ object IconRenderer {
         val out = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        canvas.drawPath(Squircle.androidPath(sizePx.toFloat()), paint)
+        canvas.drawPath(Pebble.androidPath(sizePx.toFloat()), paint)
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(content, 0f, 0f, paint)
         content.recycle()
