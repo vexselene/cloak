@@ -28,6 +28,10 @@ import androidx.compose.runtime.LaunchedEffect
 import android.os.Handler
 import android.os.Looper
 import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 private const val TAG = "SecondSpace/Debug"
 
 @Composable
@@ -55,11 +59,23 @@ fun DebugPanel(role: Role) {
                     }) { Text("Ping") }
                     Button(onClick = { fileTest(context) }) { Text("File test") }
                 }
+
                 var probe by remember { mutableStateOf("") }
                 Button(onClick = { probe = OwnershipProbe.run(context) }, modifier = Modifier.fillMaxWidth()) {
                     Text("Probe ownership")
                 }
                 if (probe.isNotEmpty()) Text(probe)
+
+                val relay = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+                    val msg = "result relay: code=${r.resultCode} echo=${r.data?.getLongExtra("echo", -1L)}"
+                    Log.d(TAG, msg)
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
+                Button(onClick = {
+                    runCatching { relay.launch(Commands.build(context, Commands.PING)) }
+                        .onFailure { Log.e(TAG, "relay test failed", it) }
+                }) { Text("Ping for result") }
+
                 SpikePanel(context)
             } else {
                 val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }

@@ -38,12 +38,12 @@ object Commands {
 
     fun isValidPackage(name: String) = name.length <= 255 && PACKAGE_NAME.matches(name)
 
-    fun send(
+    fun build(
         context: Context,
         cmd: String,
         arg: String = "",
         uris: List<Uri> = emptyList()
-    ): Result<Unit> = runCatching {
+    ): Intent {
         val signed = Auth.sign(context, cmd, arg) ?: error("space not paired: no secret")
         val intent = Intent(ACTION)
             .putExtra(EXTRA_CMD, cmd)
@@ -56,7 +56,15 @@ object Commands {
             intent.clipData = clip
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(intent)
-        Unit
+        return intent
+    }
+
+    fun send(
+        context: Context,
+        cmd: String,
+        arg: String = "",
+        uris: List<Uri> = emptyList()
+    ): Result<Unit> = runCatching {
+        context.startActivity(build(context, cmd, arg, uris))
     }
 }
