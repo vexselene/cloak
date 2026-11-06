@@ -54,13 +54,14 @@ import io.cloak.os.bridge.RecoveryStore
 
 private const val TAG = "SecondSpace/Home"
 
-private enum class Page { GRID, ADD, SETTINGS, RECOVERY, RESTORE }
+private enum class Page { GRID, ADD, SETTINGS, RECOVERY, RESTORE, TRANSFER }
 
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
     val dpm = remember { context.getSystemService(DevicePolicyManager::class.java) }
     val scope = rememberCoroutineScope()
+    val reconciler = rememberTransferReconciler()
     var checkTick by remember { mutableIntStateOf(0) }
     val state by rememberSpaceState(checkTick)
     var page by remember { mutableStateOf(Page.GRID) }
@@ -93,7 +94,14 @@ fun HomeScreen() {
 
     OnStart {
         when (SpaceStateReader.read(context)) {
-            SpaceState.UNLOCKED -> sendSession()
+            SpaceState.UNLOCKED -> {
+                sendSession()
+                // Later, so it cannot race the session command, which must reach the space first.
+                scope.launch {
+                    delay(2_500L)
+                    reconciler.trigger()
+                }
+            }
             SpaceState.PAUSED, SpaceState.LOCKED ->
                 Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
             SpaceState.NONE, SpaceState.UNPAIRED, SpaceState.FOREIGN -> Unit
@@ -178,6 +186,7 @@ fun HomeScreen() {
             Page.GRID -> SpaceHome(
                 onLock = { Commands.send(context, Commands.LOCK_NOW) },
                 onAddApps = { page = Page.ADD },
+                onTransfer = { page = Page.TRANSFER },
                 onSettings = { page = Page.SETTINGS }
             )
             Page.ADD -> SubPage(stringResource(R.string.add_apps), onBack = { page = Page.GRID }) {
@@ -196,13 +205,16 @@ fun HomeScreen() {
             Page.RESTORE -> SubPage(stringResource(R.string.restore_title), onBack = { page = Page.RECOVERY }) {
                 RecoveryRestoreScreen(it, onDone = { page = Page.SETTINGS; checkTick++ })
             }
+            Page.TRANSFER -> SubPage(stringResource(R.string.transfer_menu), onBack = { page = Page.GRID }) {
+                TransferScreen(it, onCheck = { reconciler.checkNow() })
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SpaceHome(onLock: () -> Unit, onAddApps: () -> Unit, onSettings: () -> Unit) {
+private fun SpaceHome(onLock: () -> Unit, onAddApps: () -> Unit, onSettings: () -> Unit, onTransfer: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     Scaffold(
         containerColor = Color.Transparent,
@@ -221,6 +233,10 @@ private fun SpaceHome(onLock: () -> Unit, onAddApps: () -> Unit, onSettings: () 
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.add_apps)) },
                                 onClick = { menuOpen = false; onAddApps() }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.transfer_menu)) },
+                                onClick = { menuOpen = false; onTransfer() }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.settings)) },

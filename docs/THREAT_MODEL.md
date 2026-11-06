@@ -62,3 +62,17 @@ and privacy tool, not a hardened security product.
   files are created. Transfers run in a foreground service with a visible, cancellable
   notification. With "Share from Second Space to personal apps" on, every app in the
   space can share to every personal app, not only Cloak. It is off by default.
+- In-app file transfer adds three entry points. `TransferInAlias` (an exported alias of the
+  share receiver, enabled only in the personal copy) accepts a private action from any app
+  there, like a share target: it only reads what the sender grants and does nothing until
+  the user picks a destination. `transfer`, `transfer_pick`, `transfer_report` and
+  `transfer_done` are signed commands like any other.
+- Move deletes originals, so it is gated: the destination reports per source the file count
+  and bytes it verified, and the sender deletes a source only if the report equals what it
+  recorded when the user picked it, a fresh scan still equals that record, and every size
+  was known. Cancelled, failed or partly verified transfers delete nothing. A foreign app
+  that sends the private action cannot cause a deletion, because the report goes to a
+  ledger entry that only exists for picks the user made in Cloak, and it carries a random
+  64-bit id.
+- Cloak keeps persisted access to picked folders until the move is settled or seven days
+  pass. Forwarded access is dropped after six hours.

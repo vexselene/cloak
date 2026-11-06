@@ -29,7 +29,13 @@ object Commands {
     const val CLEAR_RECOVERY = "clear_recovery"
     const val RECOVER = "recover"
     const val SET_SHARE = "set_share"
+    const val TRANSFER = "transfer"
+    const val TRANSFER_PICK = "transfer_pick"
+    const val TRANSFER_REPORT = "transfer_report"
+    const val TRANSFER_DONE = "transfer_done"
+    const val EXTRA_REPORT = "report"
 
+    val TRANSFER_KINDS = setOf("files", "folder")
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 
     private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")

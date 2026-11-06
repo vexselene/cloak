@@ -6,21 +6,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+sealed class TransferWork {
+    class Copy(val job: TransferJob) : TransferWork()
+    class Settle(val entry: LedgerEntry, val report: TransferReport) : TransferWork()
+}
+
 object TransferHub {
     private val _state = MutableStateFlow<TransferState?>(null)
     val state: StateFlow<TransferState?> = _state.asStateFlow()
 
-    @Volatile private var pending: TransferJob? = null
-    @Volatile private var engine: TransferEngine? = null
+    @Volatile private var pending: TransferWork? = null
+    @Volatile private var canceller: (() -> Unit)? = null
 
     val isRunning: Boolean get() = _state.value?.running == true
 
     @Synchronized
-    fun start(context: Context, job: TransferJob): Boolean {
+    fun start(context: Context, work: TransferWork): Boolean {
         if (isRunning) return false
         val app = context.applicationContext
-        pending = job
-        _state.value = TransferState(Phase.PREPARING)
+        pending = work
+        _state.value = TransferState(
+            Phase.PREPARING,
+            op = if (work is TransferWork.Copy) work.job.op else Op.MOVE,
+            settle = work is TransferWork.Settle
+        )
         val started = runCatching {
             app.startForegroundService(Intent(app, TransferService::class.java))
         }.isSuccess
@@ -31,14 +40,14 @@ object TransferHub {
         return started
     }
 
-    internal fun takePending(): TransferJob? {
-        val job = pending
+    internal fun takePending(): TransferWork? {
+        val work = pending
         pending = null
-        return job
+        return work
     }
 
-    internal fun attach(e: TransferEngine?) {
-        engine = e
+    internal fun attach(cancel: (() -> Unit)?) {
+        canceller = cancel
     }
 
     internal fun publish(s: TransferState) {
@@ -46,7 +55,7 @@ object TransferHub {
     }
 
     fun cancel() {
-        engine?.cancelled = true
+        canceller?.invoke()
     }
 
     fun clear() {

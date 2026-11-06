@@ -5,12 +5,17 @@ import java.util.Locale
 
 enum class ConflictPolicy { RENAME, REPLACE, SKIP }
 
-enum class Phase { PREPARING, COPYING, DONE, CANCELLED, FAILED }
+enum class Op { COPY, MOVE }
+
+enum class Phase { PREPARING, COPYING, SETTLING, DONE, CANCELLED, FAILED }
 
 class TransferJob(
     val sources: List<Uri>,
     val destTree: Uri,
     val policy: ConflictPolicy,
+    val op: Op = Op.COPY,
+    /** Set for in-app transfers. Names the move so the report can be matched to its originals. */
+    val id: String? = null,
     /** Persisted grants taken for this job. They are released when it ends. */
     val releaseAfter: List<Uri> = emptyList()
 )
@@ -26,9 +31,15 @@ data class TransferState(
     val bytesTotal: Long = 0L,
     val current: String = "",
     val recent: List<String> = emptyList(),
-    val interrupted: Boolean = false
+    val interrupted: Boolean = false,
+    val op: Op = Op.COPY,
+    /** A finished in-app move: the originals are removed when Cloak is next opened. */
+    val needsSettle: Boolean = false,
+    /** This state describes removing originals, not copying. */
+    val settle: Boolean = false
 ) {
-    val running: Boolean get() = phase == Phase.PREPARING || phase == Phase.COPYING
+    val running: Boolean
+        get() = phase == Phase.PREPARING || phase == Phase.COPYING || phase == Phase.SETTLING
 
     val fraction: Float?
         get() = when {

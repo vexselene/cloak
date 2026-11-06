@@ -16,9 +16,18 @@ class TransferEngine(
     @Volatile
     var cancelled = false
 
+    /** Filled in when run() returns, only for in-app transfers that have an id. */
+    @Volatile
+    var report: TransferReport? = null
+        private set
+
     private class Cancelled : RuntimeException()
-    private class PlanFile(val dir: List<String>, val name: String, val uri: Uri, val mime: String, val size: Long)
-    private class Plan(val dirs: List<List<String>>, val files: List<PlanFile>)
+    private class PlanDir(val src: Int, val path: List<String>)
+    private class PlanFile(
+        val src: Int, val dir: List<String>, val name: String,
+        val uri: Uri, val mime: String, val size: Long
+    )
+    private class Plan(val dirs: List<PlanDir>, val files: List<PlanFile>)
     private enum class Outcome { COPIED, SKIPPED, FAILED }
 
     private val appContext = context.applicationContext
@@ -27,6 +36,12 @@ class TransferEngine(
     private val dirUris = HashMap<List<String>, Uri>()
     private val listings = HashMap<Uri, Map<String, DocEntry>>()
     private val recent = ArrayDeque<String>()
+
+    private val count = job.sources.size
+    private val planned = IntArray(count)
+    private val done = IntArray(count)
+    private val doneBytes = LongArray(count)
+    private val bad = BooleanArray(count)
 
     private var filesTotal = 0
     private var bytesTotal = 0L
@@ -37,17 +52,14 @@ class TransferEngine(
     private var bytesDone = 0L
     private var interrupted = false
     private var current = ""
+    private var lastWritten = 0L
     private var lastPublish = 0L
 
     fun run(): TransferState {
         publish(Phase.PREPARING, force = true)
-        val plan = try {
-            buildPlan()
-        } catch (t: Throwable) {
-            Logx.e(TAG, "planning failed", t)
-            return finish(Phase.FAILED)
-        }
+        val plan = buildPlan()
         if (cancelled) return finish(Phase.CANCELLED)
+        plan.files.forEach { planned[it.src]++ }
         filesTotal = plan.files.size
         bytesTotal = plan.files.sumOf { maxOf(it.size, 0L) }
         if (filesTotal == 0 && plan.dirs.isEmpty()) return finish(Phase.FAILED)
@@ -57,9 +69,9 @@ class TransferEngine(
             job.destTree, DocumentsContract.getTreeDocumentId(job.destTree)
         )
         try {
-            for (path in plan.dirs) {
+            for (d in plan.dirs) {
                 if (cancelled) throw Cancelled()
-                ensureDir(path)
+                if (ensureDir(d.path) == null) bad[d.src] = true
             }
             for (f in plan.files) {
                 if (cancelled) throw Cancelled()
@@ -71,10 +83,18 @@ class TransferEngine(
                 when (outcome) {
                     Outcome.COPIED -> {
                         copied++
+                        done[f.src]++
+                        doneBytes[f.src] += lastWritten
                         remember(f.name)
                     }
-                    Outcome.SKIPPED -> skipped++
-                    Outcome.FAILED -> failed++
+                    Outcome.SKIPPED -> {
+                        skipped++
+                        bad[f.src] = true
+                    }
+                    Outcome.FAILED -> {
+                        failed++
+                        bad[f.src] = true
+                    }
                 }
                 publish(Phase.COPYING, force = false)
             }
@@ -85,38 +105,48 @@ class TransferEngine(
     }
 
     private fun buildPlan(): Plan {
-        val dirs = ArrayList<List<String>>()
+        val dirs = ArrayList<PlanDir>()
         val files = ArrayList<PlanFile>()
-        for (src in job.sources) {
-            if (cancelled) break
-            if (DocTree.isTree(src)) {
-                val top = listOf(TransferFormat.safeName(DocTree.rootName(appContext, src), "Folder"))
-                dirs.add(top)
-                val stack = ArrayDeque<Pair<String, List<String>>>()
-                stack.add(DocumentsContract.getTreeDocumentId(src) to top)
-                while (stack.isNotEmpty()) {
-                    if (cancelled) break
-                    val (id, path) = stack.removeLast()
-                    for (c in DocTree.children(appContext, src, id)) {
-                        val name = TransferFormat.safeName(c.name, "item")
-                        if (c.isDir) {
-                            val p = path + name
-                            dirs.add(p)
-                            stack.add(c.id to p)
-                        } else {
-                            files.add(
-                                PlanFile(
-                                    path, name,
-                                    DocumentsContract.buildDocumentUriUsingTree(src, c.id),
-                                    c.mime.ifEmpty { "application/octet-stream" }, c.size
+        job.sources.forEachIndexed { index, src ->
+            if (cancelled) return@forEachIndexed
+            try {
+                if (DocTree.isTree(src)) {
+                    val top = listOf(TransferFormat.safeName(DocTree.rootName(appContext, src), "Folder"))
+                    dirs.add(PlanDir(index, top))
+                    val stack = ArrayDeque<Pair<String, List<String>>>()
+                    stack.add(DocumentsContract.getTreeDocumentId(src) to top)
+                    while (stack.isNotEmpty()) {
+                        if (cancelled) break
+                        val (id, path) = stack.removeLast()
+                        for (c in DocTree.children(appContext, src, id, strict = true)) {
+                            val name = TransferFormat.safeName(c.name, "item")
+                            if (c.isDir) {
+                                val p = path + name
+                                dirs.add(PlanDir(index, p))
+                                stack.add(c.id to p)
+                            } else {
+                                files.add(
+                                    PlanFile(
+                                        index, path, name,
+                                        DocumentsContract.buildDocumentUriUsingTree(src, c.id),
+                                        c.mime.ifEmpty { "application/octet-stream" }, c.size
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
+                } else {
+                    val info = DocTree.describe(appContext, src)
+                    files.add(
+                        PlanFile(
+                            index, emptyList(), TransferFormat.safeName(info.name, "file"),
+                            src, info.mime, info.size
+                        )
+                    )
                 }
-            } else {
-                val info = DocTree.describe(appContext, src)
-                files.add(PlanFile(emptyList(), TransferFormat.safeName(info.name, "file"), src, info.mime, info.size))
+            } catch (e: Exception) {
+                Logx.e(TAG, "planning a source failed", e)
+                bad[index] = true
             }
         }
         return Plan(dirs, files)
@@ -198,6 +228,16 @@ class TransferEngine(
             if (created) deleteQuiet(target)
             return Outcome.FAILED
         }
+        if (job.op == Op.MOVE) {
+            // A move deletes the original, so check what actually landed on disk.
+            val onDisk = DocTree.describe(appContext, target).size
+            if (onDisk >= 0 && onDisk != written) {
+                Logx.w(TAG, "destination size differs")
+                if (created) deleteQuiet(target)
+                return Outcome.FAILED
+            }
+        }
+        lastWritten = written
         return Outcome.COPIED
     }
 
@@ -214,8 +254,10 @@ class TransferEngine(
     }
 
     private fun snapshot(phase: Phase) = TransferState(
-        phase, processed, filesTotal, copied, skipped, failed,
-        bytesDone, bytesTotal, current, recent.toList(), interrupted
+        phase = phase, filesDone = processed, filesTotal = filesTotal,
+        copied = copied, skipped = skipped, failed = failed,
+        bytesDone = bytesDone, bytesTotal = bytesTotal,
+        current = current, recent = recent.toList(), interrupted = interrupted, op = job.op
     )
 
     private fun publish(phase: Phase, force: Boolean) {
@@ -225,7 +267,22 @@ class TransferEngine(
         onState(snapshot(phase))
     }
 
-    private fun finish(phase: Phase): TransferState = snapshot(phase).copy(current = "")
+    /** Only sources that were planned fully and copied without a single problem are reported. */
+    private fun buildReport(phase: Phase): TransferReport? {
+        val id = job.id ?: return null
+        val results = (0 until count)
+            .filter { !bad[it] && done[it] == planned[it] }
+            .map { SourceResult(it, done[it], doneBytes[it]) }
+        return TransferReport(id, job.op, phase == Phase.DONE, results)
+    }
+
+    private fun finish(phase: Phase): TransferState {
+        report = buildReport(phase)
+        return snapshot(phase).copy(
+            current = "",
+            needsSettle = phase == Phase.DONE && job.op == Op.MOVE && job.id != null
+        )
+    }
 
     private companion object {
         const val TAG = "SecondSpace/Transfer"

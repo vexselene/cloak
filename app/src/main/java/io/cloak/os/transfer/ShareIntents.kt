@@ -5,6 +5,10 @@ import android.net.Uri
 import android.os.Build
 
 object ShareIntents {
+    /** Private action: the space sends its picked files to Cloak in the personal profile. */
+    const val ACTION_TRANSFER_IN = "io.cloak.os.action.TRANSFER_IN"
+    const val EXTRA_TRANSFER_ID = "transfer_id"
+
     @Suppress("DEPRECATION")
     fun sharedUris(intent: Intent): List<Uri> {
         val out = LinkedHashSet<Uri>()
