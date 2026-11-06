@@ -8,14 +8,9 @@ import io.cloak.os.common.Logx
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,8 +18,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,16 +25,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceIn
 import io.cloak.os.R
 import io.cloak.os.admin.SpaceAdminReceiver
 import io.cloak.os.bridge.Auth
@@ -218,88 +206,20 @@ fun HomeScreen() {
     }
 }
 
-@Composable
-private fun headerHeight(fraction: Float, min: Dp = 120.dp, max: Dp = 340.dp): Dp {
-    val screen = LocalConfiguration.current.screenHeightDp
-    return (screen * fraction).dp.coerceIn(min, max)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun headerColors(): TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-    containerColor = Color.Transparent,
-    scrolledContainerColor = Color.Transparent
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SpaceHome(
-    onLock: () -> Unit,
-    onAddApps: () -> Unit,
-    onTransfer: () -> Unit,
-    onSettings: () -> Unit
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-    val behavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(
-        modifier = Modifier.nestedScroll(behavior.nestedScrollConnection),
-        containerColor = Color.Transparent,
-        topBar = {
-            LargeTopAppBar(
-                title = { Text(stringResource(R.string.space_name)) },
-                expandedHeight = headerHeight(0.34f),
-                actions = {
-                    IconButton(onClick = onLock) {
-                        Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.lock))
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.add_apps)) },
-                                onClick = { menuOpen = false; onAddApps() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.transfer_menu)) },
-                                onClick = { menuOpen = false; onTransfer() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.settings)) },
-                                onClick = { menuOpen = false; onSettings() }
-                            )
-                        }
-                    }
-                },
-                colors = headerColors(),
-                scrollBehavior = behavior
-            )
-        },
-        bottomBar = { TransferCardHost() }
-    ) { inner ->
-        SpaceGrid(onAddApps, Modifier.fillMaxSize().padding(inner))
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubPage(title: String, onBack: () -> Unit, content: @Composable (Modifier) -> Unit) {
-    val behavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(behavior.nestedScrollConnection),
         containerColor = Color.Transparent,
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text(title) },
-                expandedHeight = headerHeight(0.2f),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                colors = headerColors(),
-                scrollBehavior = behavior
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = { TransferCardHost() }

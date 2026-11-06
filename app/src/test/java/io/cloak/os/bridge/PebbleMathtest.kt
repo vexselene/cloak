@@ -4,14 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SquircleMathTest {
+class PebbleMathTest {
     private val size = 200f
-    private val pts = SquircleMath.points(size, size)
+    private val pts = PebbleMath.points(size, size)
     private val xs = pts.filterIndexed { i, _ -> i % 2 == 0 }
     private val ys = pts.filterIndexed { i, _ -> i % 2 == 1 }
 
     @Test fun pointCountMatchesSteps() {
-        assertEquals(SquircleMath.STEPS * 2, pts.size)
+        assertEquals(PebbleMath.STEPS * 2, pts.size)
+    }
+
+    @Test fun exponentIsBetweenACircleAndTheOldSquircle() {
+        assertTrue(PebbleMath.EXPONENT > 2.0 && PebbleMath.EXPONENT < 4.5)
     }
 
     @Test fun allPointsStayInsideTheBox() {
@@ -27,7 +31,7 @@ class SquircleMathTest {
     }
 
     @Test fun diagonalPointIsFartherOutThanACircleButInsideASquare() {
-        val i = SquircleMath.STEPS / 8
+        val i = PebbleMath.STEPS / 8
         val dx = pts[2 * i] - size / 2
         val dy = pts[2 * i + 1] - size / 2
         val distance = kotlin.math.sqrt(dx * dx + dy * dy)
@@ -36,7 +40,7 @@ class SquircleMathTest {
     }
 
     @Test fun nonSquareBoxesAreScaledPerAxis() {
-        val p = SquircleMath.points(300f, 100f)
+        val p = PebbleMath.points(300f, 100f)
         assertEquals(300f, p.filterIndexed { i, _ -> i % 2 == 0 }.max(), 0.01f)
         assertEquals(100f, p.filterIndexed { i, _ -> i % 2 == 1 }.max(), 0.01f)
     }

@@ -1,8 +1,6 @@
 package io.cloak.os.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,9 +33,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.remember
 import io.cloak.os.bridge.SpaceProfile
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import io.cloak.os.ui.theme.SquircleShape
+import androidx.compose.foundation.Image
+
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
     CenteredPage(
@@ -129,20 +126,11 @@ private fun CenteredPage(title: String, body: String, actions: @Composable Colum
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
             ) {
-                Box(
-                    Modifier
-                        .size(96.dp)
-                        .clip(SquircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_logo_mark),
-                        contentDescription = null,
-                        modifier = Modifier.size(52.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+                Image(
+                    painterResource(R.drawable.ic_logo_egg),
+                    contentDescription = null,
+                    modifier = Modifier.size(96.dp)
+                )
                 Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
                 Text(
                     body,
