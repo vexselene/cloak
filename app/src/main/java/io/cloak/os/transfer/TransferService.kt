@@ -1,0 +1,128 @@
+package io.cloak.os.transfer
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
+import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
+import io.cloak.os.R
+import io.cloak.os.common.Logx
+
+class TransferService : Service() {
+    private var worker: Thread? = null
+    @Volatile private var lastNotify = 0L
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CANCEL) {
+            TransferHub.cancel()
+            return START_NOT_STICKY
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL, getString(R.string.transfer_notif_channel), NotificationManager.IMPORTANCE_LOW)
+        )
+        // Must be called promptly after startForegroundService, even if there turns out to be no job.
+        startForeground(
+            NOTIFICATION_ID,
+            notification(TransferHub.state.value ?: TransferState(Phase.PREPARING)),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        )
+        val job = TransferHub.takePending()
+        if (job == null || worker?.isAlive == true) {
+            if (worker?.isAlive != true) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+            return START_NOT_STICKY
+        }
+        worker = Thread { work(job) }.also { it.start() }
+        return START_NOT_STICKY
+    }
+
+    private fun work(job: TransferJob) {
+        val lock = getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cloak:transfer")
+            .apply { setReferenceCounted(false) }
+        lock.acquire(WAKE_MS)
+        val engine = TransferEngine(applicationContext, job) { s ->
+            TransferHub.publish(s)
+            notifyProgress(s)
+        }
+        TransferHub.attach(engine)
+        val result = try {
+            engine.run()
+        } catch (t: Throwable) {
+            Logx.e(TAG, "transfer crashed", t)
+            TransferState(Phase.FAILED)
+        }
+        TransferHub.publish(result)
+        job.releaseAfter.forEach {
+            runCatching {
+                contentResolver.releasePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+        }
+        if (lock.isHeld) lock.release()
+        TransferHub.attach(null)
+        stopForeground(STOP_FOREGROUND_DETACH)
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(result))
+        stopSelf()
+    }
+
+    private fun notifyProgress(s: TransferState) {
+        val now = SystemClock.elapsedRealtime()
+        if (s.running && now - lastNotify < NOTIFY_MS) return
+        lastNotify = now
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(s))
+    }
+
+    private fun notification(s: TransferState): Notification {
+        val b = Notification.Builder(this, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        if (s.running) {
+            b.setContentTitle(getString(R.string.transfer_notif_title))
+                .setContentText(s.current.ifEmpty { getString(R.string.transfer_preparing) })
+                .setOngoing(true)
+                .addAction(cancelAction())
+            val f = s.fraction
+            if (f != null) b.setProgress(100, (f * 100).toInt(), false) else b.setProgress(0, 0, true)
+        } else {
+            b.setContentTitle(getString(transferTitle(s.phase)))
+                .setContentText(getString(R.string.transfer_summary, s.copied, s.skipped, s.failed))
+                .setAutoCancel(true)
+        }
+        return b.build()
+    }
+
+    private fun cancelAction(): Notification.Action {
+        val pi = PendingIntent.getService(
+            this, 0,
+            Intent(this, TransferService::class.java).setAction(ACTION_CANCEL),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return Notification.Action.Builder(
+            Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
+            getString(R.string.cancel),
+            pi
+        ).build()
+    }
+
+    private companion object {
+        const val TAG = "SecondSpace/TransferService"
+        const val ACTION_CANCEL = "io.cloak.os.action.CANCEL_TRANSFER"
+        const val CHANNEL = "transfer"
+        const val NOTIFICATION_ID = 3
+        const val NOTIFY_MS = 500L
+        const val WAKE_MS = 2 * 60 * 60 * 1000L
+    }
+}

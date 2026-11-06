@@ -34,7 +34,8 @@ import android.widget.Toast
 import io.cloak.os.bridge.SpaceMaintenance
 import io.cloak.os.bridge.LockSettings
 import androidx.compose.ui.draw.alpha
-
+import io.cloak.os.bridge.TransferSettings
+import io.cloak.os.transfer.FolderPicker
 private const val TAG = "SecondSpace/Settings"
 
 @Composable
@@ -50,6 +51,22 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
     var confirmDelete by remember { mutableStateOf(false) }
 
     var lock by remember { mutableStateOf(LockSettings.load(context)) }
+
+    var transfer by remember { mutableStateOf(TransferSettings.load(context)) }
+    val pickerSentMsg = stringResource(R.string.picker_requested)
+    val pickerNoneMsg = stringResource(R.string.picker_none)
+
+    fun updateShare(on: Boolean) {
+        val old = transfer
+        transfer = TransferSettings(on)
+        TransferSettings.save(context, transfer)
+        Commands.send(context, Commands.SET_SHARE, transfer.encode()).onFailure {
+            Logx.e(TAG, "send share setting failed", it)
+            transfer = old
+            TransferSettings.save(context, old)
+            Toast.makeText(context, sendFailedMsg, Toast.LENGTH_LONG).show()
+        }
+    }
 
     fun update(new: PrivacySettings) {
         val old = settings
@@ -92,6 +109,21 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
         SettingToggle(R.string.privacy_contacts, R.string.privacy_contacts_desc, settings.blockContacts) {
             update(settings.copy(blockContacts = it))
         }
+        HorizontalDivider()
+        Text(stringResource(R.string.transfer_settings_title), style = MaterialTheme.typography.titleMedium)
+        SettingToggle(R.string.share_out, R.string.share_out_desc, transfer.shareFromSpace) { updateShare(it) }
+        Text(
+            stringResource(R.string.picker_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(
+            onClick = {
+                val ok = FolderPicker.enableInSpace(context)
+                Toast.makeText(context, if (ok) pickerSentMsg else pickerNoneMsg, Toast.LENGTH_LONG).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.picker_enable)) }
         HorizontalDivider()
         Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.titleMedium)
         SettingToggle(R.string.lock_hide, R.string.lock_hide_desc, lock.hideApps) { on ->

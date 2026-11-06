@@ -25,12 +25,10 @@ object Commands {
     const val SPIKE = "spike"
     const val SESSION = "session"
     const val SET_LOCK_MODE = "set_lock_mode"
-
     const val SET_RECOVERY = "set_recovery"
-
     const val CLEAR_RECOVERY = "clear_recovery"
-
     const val RECOVER = "recover"
+    const val SET_SHARE = "set_share"
 
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 

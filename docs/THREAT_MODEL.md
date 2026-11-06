@@ -55,3 +55,10 @@ and privacy tool, not a hardened security product.
   user, but nothing else.
 - Setting the phone's clock back after a recovery makes the next recovery fail until
   the clock catches up.
+- File transfer: the share target (`ShareReceiverActivity`) is exported, like any share
+  target, so any app can send it content URIs. It accepts only `content://` URIs, does
+  nothing until the user picks a destination folder in the system picker, and can only
+  read what the sender could already grant. Names from providers are sanitised before
+  files are created. Transfers run in a foreground service with a visible, cancellable
+  notification. With "Share from Second Space to personal apps" on, every app in the
+  space can share to every personal app, not only Cloak. It is off by default.

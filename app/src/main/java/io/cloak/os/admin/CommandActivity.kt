@@ -20,6 +20,7 @@ import io.cloak.os.bridge.RecoveryStore
 import io.cloak.os.bridge.RecoveryToken
 import android.app.KeyguardManager
 import io.cloak.os.bridge.RecoveryProof
+import io.cloak.os.bridge.TransferSettings
 
 class CommandActivity : Activity() {
     private var awaitingPin = false
@@ -126,6 +127,15 @@ class CommandActivity : Activity() {
                 }
             Commands.CLEAR_RECOVERY ->
                 if (RecoveryStore.clearKey(this)) toast(R.string.toast_recovery_cleared)
+            Commands.SET_SHARE -> {
+                val s = TransferSettings.decode(arg)
+                if (s == null) {
+                    Logx.w(TAG, "bad share argument")
+                } else {
+                    TransferSettings.save(this, s)
+                    PolicyManager.setupChannel(this)
+                }
+            }
             else -> Logx.w(TAG, "unknown command")
         }
         return false

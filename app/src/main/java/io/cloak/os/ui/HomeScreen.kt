@@ -231,7 +231,8 @@ private fun SpaceHome(onLock: () -> Unit, onAddApps: () -> Unit, onSettings: () 
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
-        }
+        },
+        bottomBar = { TransferCardHost() }
     ) { inner ->
         SpaceGrid(Modifier.fillMaxSize().padding(inner))
     }
@@ -252,7 +253,8 @@ private fun SubPage(title: String, onBack: () -> Unit, content: @Composable (Mod
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
-        }
+        },
+        bottomBar = { TransferCardHost() }
     ) { inner ->
         content(Modifier.padding(inner).padding(horizontal = 16.dp, vertical = 8.dp))
     }
