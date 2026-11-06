@@ -238,4 +238,116 @@ object TransferProbeUtil {
         }.onFailure { sb.appendLine("  read FAILED: ${it.javaClass.simpleName}: ${it.message}") }
         return sb.toString()
     }
+
+    fun isDocPath(uri: Uri): Boolean {
+        val s = uri.pathSegments
+        return (s.size == 2 && s[0] == "document") ||
+                (s.size == 4 && s[0] == "tree" && s[2] == "document")
+    }
+
+    private const val MAX_COPY = 5000
+
+    fun displayName(context: Context, uri: Uri): String? = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+            if (it.moveToFirst()) it.getString(0) else null
+        }
+    }.getOrNull()
+
+    private fun streamCopy(context: Context, src: Uri, dst: Uri, throttleMs: Long): Long {
+        val resolver = context.contentResolver
+        var total = 0L
+        resolver.openInputStream(src)!!.use { input ->
+            resolver.openOutputStream(dst, "wt")!!.use { output ->
+                val buf = ByteArray(256 * 1024)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    output.write(buf, 0, n)
+                    total += n
+                }
+            }
+        }
+        if (throttleMs > 0) Thread.sleep(throttleMs)
+        return total
+    }
+
+    /** Pulls a folder through a forwarded grant into a folder picked in this profile. */
+    fun copyTree(context: Context, source: Uri, destTree: Uri, throttleMs: Long, say: (String) -> Unit) {
+        val resolver = context.contentResolver
+        val dirMime = DocumentsContract.Document.MIME_TYPE_DIR
+        var files = 0
+        var folders = 0
+        var bytes = 0L
+        var failures = 0
+        var mismatches = 0
+        val t0 = SystemClock.elapsedRealtime()
+        val destRoot = DocumentsContract.buildDocumentUriUsingTree(
+            destTree, DocumentsContract.getTreeDocumentId(destTree)
+        )
+        val copyRoot = runCatching {
+            DocumentsContract.createDocument(resolver, destRoot, dirMime, "probe-copy-${System.currentTimeMillis()}")
+        }.getOrNull()
+        if (copyRoot == null) {
+            say("  could not create the copy folder in the destination")
+            return
+        }
+
+        fun copyDir(srcId: String, destDir: Uri) {
+            for (child in children(context, source, srcId)) {
+                if (files + failures >= MAX_COPY) return
+                if (child.isDir) {
+                    val d = runCatching {
+                        DocumentsContract.createDocument(resolver, destDir, dirMime, child.name)
+                    }.getOrNull()
+                    if (d == null) {
+                        failures++
+                        continue
+                    }
+                    folders++
+                    copyDir(child.id, d)
+                } else {
+                    runCatching {
+                        val srcDoc = DocumentsContract.buildDocumentUriUsingTree(source, child.id)
+                        val mime = child.mime.ifEmpty { "application/octet-stream" }
+                        val d = DocumentsContract.createDocument(resolver, destDir, mime, child.name)!!
+                        val n = streamCopy(context, srcDoc, d, throttleMs)
+                        if (child.size >= 0 && n != child.size) mismatches++
+                        files++
+                        bytes += n
+                        if (files % 50 == 0) say("  progress: $files files")
+                    }.onFailure { failures++ }
+                }
+            }
+        }
+
+        runCatching { copyDir(DocumentsContract.getTreeDocumentId(source), copyRoot) }
+            .onFailure { say("  copy aborted: ${it.javaClass.simpleName}: ${it.message}") }
+        val ms = SystemClock.elapsedRealtime() - t0
+        say(
+            "  copied $files files, $folders folders, $bytes bytes in $ms ms" +
+                    (if (files > 0) " (${ms / files} ms per file)" else "") +
+                    ", failures=$failures, size mismatches=$mismatches"
+        )
+        val removed = runCatching { DocumentsContract.deleteDocument(resolver, copyRoot) }.getOrDefault(false)
+        say("  removed the copy: $removed")
+    }
+
+    /** Pulls one file (any readable URI) into a folder picked in this profile and reports the speed. */
+    fun copyOne(context: Context, src: Uri, destTree: Uri, throttleMs: Long, say: (String) -> Unit) {
+        val resolver = context.contentResolver
+        val name = "probe-copy-" + (displayName(context, src) ?: "file")
+        val mime = runCatching { resolver.getType(src) }.getOrNull() ?: "application/octet-stream"
+        val destRoot = DocumentsContract.buildDocumentUriUsingTree(
+            destTree, DocumentsContract.getTreeDocumentId(destTree)
+        )
+        val t0 = SystemClock.elapsedRealtime()
+        runCatching {
+            val d = DocumentsContract.createDocument(resolver, destRoot, mime, name)!!
+            val n = streamCopy(context, src, d, throttleMs)
+            val ms = SystemClock.elapsedRealtime() - t0
+            val mbs = if (ms > 0) n / 1048576.0 / (ms / 1000.0) else 0.0
+            say("  copied $n bytes in $ms ms (${"%.1f".format(mbs)} MB/s)")
+            say("  removed the copy: ${DocumentsContract.deleteDocument(resolver, d)}")
+        }.onFailure { say("  copy FAILED: ${it.javaClass.simpleName}: ${it.message}") }
+    }
 }

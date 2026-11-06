@@ -58,7 +58,10 @@ class CommandActivity : Activity() {
         }
 
         when (cmd) {
-            Commands.PING -> if (BuildConfig.DEBUG) toast("Ping received in Second Space")
+            Commands.PING -> if (BuildConfig.DEBUG) {
+                toast("Ping received in Second Space")
+                setResult(RESULT_OK, Intent().putExtra("echo", seq))
+            }
             Commands.LOCK_NOW -> SessionManager.lock(this)
             Commands.SET_LOCK -> {
                 PolicyManager.requireWorkLock(this)
