@@ -21,6 +21,18 @@ import io.cloak.os.bridge.RecoveryToken
 import android.app.KeyguardManager
 import io.cloak.os.bridge.RecoveryProof
 import io.cloak.os.bridge.TransferSettings
+import android.content.ClipData
+import io.cloak.os.transfer.Grants
+import io.cloak.os.transfer.MoveLedger
+import io.cloak.os.transfer.Op
+import io.cloak.os.transfer.ReportStore
+import io.cloak.os.transfer.ShareIntents
+import io.cloak.os.transfer.TransferFlows
+import io.cloak.os.transfer.TransferHub
+import io.cloak.os.transfer.TransferId
+import io.cloak.os.transfer.TransferReport
+import io.cloak.os.transfer.TransferWork
+import io.cloak.os.ui.ShareReceiverActivity
 
 class CommandActivity : Activity() {
     private var awaitingPin = false
@@ -136,6 +148,13 @@ class CommandActivity : Activity() {
                     PolicyManager.setupChannel(this)
                 }
             }
+            Commands.TRANSFER -> startReceiver(arg)
+            Commands.TRANSFER_PICK ->
+                if (arg in Commands.TRANSFER_KINDS) {
+                    startActivity(Intent(this, TransferSendActivity::class.java).putExtra(TransferSendActivity.EXTRA_KIND, arg))
+                }
+            Commands.TRANSFER_REPORT -> answerReport(arg)
+            Commands.TRANSFER_DONE -> acceptReport(arg)
             else -> Logx.w(TAG, "unknown command")
         }
         return false
@@ -238,5 +257,62 @@ class CommandActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_AWAITING, awaitingPin)
+    }
+
+    private fun transferUris(): List<Uri> {
+        val clip = intent.clipData ?: return emptyList()
+        return (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+            .filter { it.scheme == "content" }
+            .take(TransferFlows.MAX_SOURCES)
+    }
+
+    /** Opens the receiver screen inside the space for sources sent from the personal side. */
+    private fun startReceiver(id: String) {
+        val uris = transferUris()
+        if (!TransferId.isValid(id) || uris.isEmpty()) {
+            Logx.w(TAG, "bad transfer request")
+            return
+        }
+        // Keep access past this activity, which finishes right away.
+        uris.forEach { Grants.persist(this, it, write = false) }
+        val clip = ClipData.newRawUri("transfer", uris.first())
+        uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
+        startActivity(
+            Intent(this, ShareReceiverActivity::class.java).apply {
+                action = ShareIntents.ACTION_TRANSFER_IN
+                putExtra(ShareIntents.EXTRA_TRANSFER_ID, id)
+                clipData = clip
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        )
+    }
+
+    /** Answers a request from the main copy for the report of a transfer received here. */
+    private fun answerReport(id: String) {
+        val report = if (TransferId.isValid(id)) ReportStore.get(this, id) else null
+        if (report != null) {
+            setResult(RESULT_OK, Intent().putExtra(Commands.EXTRA_REPORT, report.encode()))
+        } else {
+            setResult(RESULT_CANCELED)
+        }
+    }
+
+    /** Takes the main copy's report for a transfer that started here, and removes the originals if it allows. */
+    private fun acceptReport(arg: String) {
+        val report = TransferReport.decode(arg)
+        if (report == null) {
+            setResult(RESULT_CANCELED)
+            return
+        }
+        val entry = MoveLedger.get(this, report.id)
+        when {
+            entry == null -> setResult(RESULT_OK)
+            report.op != Op.MOVE || !report.complete -> {
+                MoveLedger.remove(this, entry.id)
+                setResult(RESULT_OK)
+            }
+            TransferHub.start(this, TransferWork.Settle(entry, report)) -> setResult(RESULT_OK)
+            else -> setResult(RESULT_CANCELED)
+        }
     }
 }

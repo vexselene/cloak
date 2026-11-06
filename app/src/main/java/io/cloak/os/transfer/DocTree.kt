@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import java.io.IOException
 
 class DocEntry(val id: String, val name: String, val mime: String, val size: Long) {
     val isDir: Boolean get() = mime == DocumentsContract.Document.MIME_TYPE_DIR
@@ -27,7 +28,8 @@ object DocTree {
         )?.use { if (it.moveToFirst()) it.getString(0) else null }
     }.getOrNull()
 
-    fun children(context: Context, tree: Uri, parentId: String): List<DocEntry> {
+    /** With strict = true a provider that returns no cursor throws instead of looking empty. */
+    fun children(context: Context, tree: Uri, parentId: String, strict: Boolean = false): List<DocEntry> {
         val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
         val cols = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -36,7 +38,12 @@ object DocTree {
             DocumentsContract.Document.COLUMN_SIZE
         )
         val out = ArrayList<DocEntry>()
-        context.contentResolver.query(uri, cols, null, null, null)?.use { c ->
+        val cursor = context.contentResolver.query(uri, cols, null, null, null)
+        if (cursor == null) {
+            if (strict) throw IOException("listing failed")
+            return out
+        }
+        cursor.use { c ->
             while (c.moveToNext()) {
                 out.add(
                     DocEntry(

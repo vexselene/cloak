@@ -54,7 +54,7 @@ fun TransferCard(
                 if (state.phase == Phase.COPYING) {
                     stringResource(R.string.transfer_copying, state.filesDone, state.filesTotal)
                 } else {
-                    stringResource(transferTitle(state.phase))
+                    stringResource(transferTitle(state))
                 },
                 style = MaterialTheme.typography.titleMedium
             )
@@ -85,9 +85,19 @@ fun TransferCard(
                 }
             } else {
                 Text(
-                    stringResource(R.string.transfer_summary, state.copied, state.skipped, state.failed),
+                    stringResource(
+                        if (state.settle) R.string.transfer_settle_summary else R.string.transfer_summary,
+                        state.copied, state.skipped, state.failed
+                    ),
                     style = MaterialTheme.typography.bodyMedium
                 )
+                if (state.needsSettle) {
+                    Text(
+                        stringResource(R.string.transfer_move_pending),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 if (state.interrupted) {
                     Text(
                         stringResource(R.string.transfer_interrupted),

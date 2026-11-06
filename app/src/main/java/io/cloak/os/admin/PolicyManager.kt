@@ -14,6 +14,7 @@ import io.cloak.os.common.Role
 import android.Manifest
 import android.os.Build
 import io.cloak.os.bridge.TransferSettings
+import io.cloak.os.transfer.ShareIntents
 
 object PolicyManager {
     private const val TAG = "SecondSpace/PolicyManager"
@@ -71,6 +72,26 @@ object PolicyManager {
                         }
                         dpm.addCrossProfileIntentFilter(admin, f, both)
                     }
+                }
+            }
+            step("transfer filter") {
+                if (agent) {
+                    val both = DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or
+                            DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                    val f = IntentFilter(ShareIntents.ACTION_TRANSFER_IN).apply {
+                        addCategory(Intent.CATEGORY_DEFAULT)
+                        addDataType("*/*")
+                    }
+                    dpm.addCrossProfileIntentFilter(admin, f, both)
+                }
+            }
+            step("transfer alias") {
+                if (agent) {
+                    context.packageManager.setComponentEnabledSetting(
+                        ComponentName(context.packageName, "io.cloak.os.TransferInAlias"),
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
                 }
             }
             step("work lock") { requireWorkLock(context).getOrThrow() }

@@ -11,8 +11,10 @@ import android.graphics.drawable.Icon
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import io.cloak.os.MainActivity
 import io.cloak.os.R
 import io.cloak.os.common.Logx
+import io.cloak.os.common.Role
 
 class TransferService : Service() {
     private var worker: Thread? = null
@@ -34,47 +36,63 @@ class TransferService : Service() {
             notification(TransferHub.state.value ?: TransferState(Phase.PREPARING)),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         )
-        val job = TransferHub.takePending()
-        if (job == null || worker?.isAlive == true) {
+        val next = TransferHub.takePending()
+        if (next == null || worker?.isAlive == true) {
             if (worker?.isAlive != true) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
             return START_NOT_STICKY
         }
-        worker = Thread { work(job) }.also { it.start() }
+        worker = Thread { runWork(next) }.also { it.start() }
         return START_NOT_STICKY
     }
 
-    private fun work(job: TransferJob) {
+    private fun runWork(work: TransferWork) {
         val lock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cloak:transfer")
             .apply { setReferenceCounted(false) }
         lock.acquire(WAKE_MS)
-        val engine = TransferEngine(applicationContext, job) { s ->
-            TransferHub.publish(s)
-            notifyProgress(s)
-        }
-        TransferHub.attach(engine)
         val result = try {
-            engine.run()
+            when (work) {
+                is TransferWork.Copy -> runCopy(work.job)
+                is TransferWork.Settle -> runSettle(work)
+            }
         } catch (t: Throwable) {
             Logx.e(TAG, "transfer crashed", t)
             TransferState(Phase.FAILED)
         }
         TransferHub.publish(result)
-        job.releaseAfter.forEach {
-            runCatching {
-                contentResolver.releasePersistableUriPermission(
-                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-            }
-        }
         if (lock.isHeld) lock.release()
         TransferHub.attach(null)
+        Grants.pruneForwarded(applicationContext)
         stopForeground(STOP_FOREGROUND_DETACH)
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(result))
         stopSelf()
+    }
+
+    private fun runCopy(job: TransferJob): TransferState {
+        val engine = TransferEngine(applicationContext, job) { s ->
+            TransferHub.publish(s)
+            notifyProgress(s)
+        }
+        TransferHub.attach { engine.cancelled = true }
+        val result = engine.run()
+        // Saved before the final state is published, so a poll right after always finds it.
+        engine.report?.let { ReportStore.save(this, it, deliver = Role.detect(this) == Role.MAIN) }
+        job.releaseAfter.forEach { Grants.release(this, it) }
+        return result
+    }
+
+    private fun runSettle(work: TransferWork.Settle): TransferState {
+        val engine = SettleEngine(applicationContext, work.entry, work.report) { s ->
+            TransferHub.publish(s)
+            notifyProgress(s)
+        }
+        TransferHub.attach { engine.cancelled = true }
+        val result = engine.run()
+        MoveLedger.remove(applicationContext, work.entry.id)
+        return result
     }
 
     private fun notifyProgress(s: TransferState) {
@@ -90,16 +108,27 @@ class TransferService : Service() {
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         if (s.running) {
-            b.setContentTitle(getString(R.string.transfer_notif_title))
-                .setContentText(s.current.ifEmpty { getString(R.string.transfer_preparing) })
+            b.setContentTitle(getString(transferTitle(s)))
+                .setContentText(s.current.ifEmpty { getString(transferTitle(s)) })
                 .setOngoing(true)
                 .addAction(cancelAction())
             val f = s.fraction
             if (f != null) b.setProgress(100, (f * 100).toInt(), false) else b.setProgress(0, 0, true)
         } else {
-            b.setContentTitle(getString(transferTitle(s.phase)))
-                .setContentText(getString(R.string.transfer_summary, s.copied, s.skipped, s.failed))
-                .setAutoCancel(true)
+            val text = when {
+                s.needsSettle -> getString(R.string.transfer_move_pending)
+                s.settle -> getString(R.string.transfer_settle_summary, s.copied, s.skipped, s.failed)
+                else -> getString(R.string.transfer_summary, s.copied, s.skipped, s.failed)
+            }
+            b.setContentTitle(getString(transferTitle(s))).setContentText(text).setAutoCancel(true)
+            if (Role.detect(this) == Role.MAIN) {
+                b.setContentIntent(
+                    PendingIntent.getActivity(
+                        this, 1, Intent(this, MainActivity::class.java),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                )
+            }
         }
         return b.build()
     }

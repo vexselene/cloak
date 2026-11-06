@@ -148,6 +148,25 @@
             </intent-filter>
         </activity>
 
+        <activity-alias
+            android:name=".TransferInAlias"
+            android:targetActivity=".ui.ShareReceiverActivity"
+            android:exported="true"
+            android:enabled="true"
+            android:label="@string/share_target_label">
+            <intent-filter>
+                <action android:name="io.cloak.os.action.TRANSFER_IN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity
+            android:name=".admin.TransferSendActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     </application>
 
 </manifest>
