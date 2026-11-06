@@ -46,7 +46,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import io.cloak.os.R
 import io.cloak.os.apps.SpaceApps
 import io.cloak.os.bridge.ApkExporter
@@ -78,7 +77,7 @@ private fun loadLaunchableApps(context: Context): List<AppEntry> {
                 label = it.loadLabel(pm).toString(),
                 packageName = it.activityInfo.packageName,
                 isSystem = (it.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
-                icon = it.loadIcon(pm).toBitmap(96, 96).asImageBitmap()
+                icon = IconRenderer.render(it.loadIcon(pm), 132).asImageBitmap()
             )
         }
         .sortedBy { it.label.lowercase() }

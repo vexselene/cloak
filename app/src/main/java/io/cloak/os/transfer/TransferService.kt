@@ -104,7 +104,7 @@ class TransferService : Service() {
 
     private fun notification(s: TransferState): Notification {
         val b = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_stat_transfer)
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         if (s.running) {

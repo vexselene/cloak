@@ -89,12 +89,12 @@ class LockService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val action = Notification.Action.Builder(
-            Icon.createWithResource(this, android.R.drawable.ic_lock_lock),
+            Icon.createWithResource(this, R.drawable.ic_stat_space),
             getString(R.string.session_notification_lock),
             lock
         ).build()
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setSmallIcon(R.drawable.ic_stat_space)
             .setContentTitle(getString(R.string.session_notification_title))
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_SECRET)
