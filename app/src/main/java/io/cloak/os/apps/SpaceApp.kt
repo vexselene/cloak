@@ -32,7 +32,7 @@ object SpaceApps {
                     it.label.toString(),
                     it.applicationInfo.packageName,
                     it.componentName,
-                    it.getBadgedIcon(0),
+                    it.getIcon(0),
                     (it.applicationInfo.flags and ApplicationInfo.FLAG_SUSPENDED) != 0
                 )
             }

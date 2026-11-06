@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +36,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.remember
 import io.cloak.os.bridge.SpaceProfile
-
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import io.cloak.os.ui.theme.SquircleShape
 @Composable
 fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
     CenteredPage(
@@ -131,13 +130,16 @@ private fun CenteredPage(title: String, body: String, actions: @Composable Colum
                 verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
             ) {
                 Box(
-                    Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    Modifier
+                        .size(96.dp)
+                        .clip(SquircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Default.Lock,
+                        painterResource(R.drawable.ic_logo_mark),
                         contentDescription = null,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(52.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }

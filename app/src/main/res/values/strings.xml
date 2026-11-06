@@ -196,4 +196,6 @@
     <string name="transfer_settling">Removing originals</string>
     <string name="transfer_settle_done">Originals removed</string>
     <string name="transfer_settle_summary">%1$d files removed, %2$d items kept, %3$d failed</string>
+    <string name="settings_group_lock">Second Space lock</string>
+    <string name="settings_group_danger">Remove</string>
 </resources>
