@@ -76,6 +76,11 @@ class TransferProbeActivity : ComponentActivity() {
         button("Pick folder (list, create, write, read, delete)") { launchSafe("folder picker") { pickTree.launch(null) } }
         button("Pick file (read test)") { launchSafe("file picker") { pickFile.launch(arrayOf("*/*")) } }
         button("Create file (write test)") { launchSafe("create file") { createFile.launch("cloak-probe.txt") } }
+        button("Release persisted folder grants (this copy)") {
+            val granted = contentResolver.persistedUriPermissions
+            granted.forEach { TransferProbeUtil.release(this, it.uri) }
+            say("released ${granted.size} grants")
+        }
         button("Clear log") { out.text = "" }
         column.addView(out)
         setContentView(ScrollView(this).apply { addView(column) })
@@ -263,9 +268,11 @@ class TransferProbeActivity : ComponentActivity() {
     }
 
     private fun sendGrant(uri: Uri, prefix: Boolean) {
+        say("own grant: " + TransferProbeUtil.persist(this, uri, true))
         val send = Intent(Intent.ACTION_SEND).setType("*/*").putExtra(Intent.EXTRA_STREAM, uri)
         send.clipData = ClipData.newRawUri("grant", uri)
-        var flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        var flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
         if (prefix) flags = flags or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         send.addFlags(flags)
         say("sharing $uri")
