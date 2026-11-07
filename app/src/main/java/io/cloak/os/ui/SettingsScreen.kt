@@ -2,20 +2,29 @@ package io.cloak.os.ui
 
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -30,8 +39,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.cloak.os.R
 import io.cloak.os.bridge.Commands
@@ -41,6 +54,8 @@ import io.cloak.os.bridge.SpaceMaintenance
 import io.cloak.os.bridge.TransferSettings
 import io.cloak.os.common.Logx
 import io.cloak.os.transfer.FolderPicker
+import io.cloak.os.ui.theme.LocalTheme
+import io.cloak.os.ui.theme.ThemePreset
 
 private const val TAG = "SecondSpace/Settings"
 
@@ -100,6 +115,15 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
         modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        SettingsGroup(R.string.settings_group_appearance) {
+            Text(
+                stringResource(R.string.appearance_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            ThemeChoices()
+        }
+
         SettingsGroup(R.string.privacy_title) {
             SettingToggle(R.string.privacy_screenshots, R.string.privacy_screenshots_desc, settings.blockScreenshots) {
                 update(settings.copy(blockScreenshots = it))
@@ -137,14 +161,14 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            CompactButton(R.string.picker_enable, onClick = {
+            SettingsButton(R.string.picker_enable, onClick = {
                 val ok = FolderPicker.enableInSpace(context)
                 Toast.makeText(context, if (ok) pickerSentMsg else pickerNoneMsg, Toast.LENGTH_LONG).show()
             })
         }
 
         SettingsGroup(R.string.settings_group_lock) {
-            CompactButton(
+            SettingsButton(
                 R.string.set_lock,
                 onClick = { Commands.send(context, Commands.SET_LOCK) },
                 filled = true
@@ -157,16 +181,14 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompactButton(R.string.maint_check, onClick = {
-                    val ok = SpaceMaintenance.check(context).isSuccess
-                    Toast.makeText(context, if (ok) reachableMsg else unreachableMsg, Toast.LENGTH_LONG).show()
-                })
-                CompactButton(R.string.maint_repair, onClick = {
-                    val msg = if (SpaceMaintenance.repair(context).isSuccess) repairSentMsg else repairFailedMsg
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                })
-            }
+            SettingsButton(R.string.maint_check, onClick = {
+                val ok = SpaceMaintenance.check(context).isSuccess
+                Toast.makeText(context, if (ok) reachableMsg else unreachableMsg, Toast.LENGTH_LONG).show()
+            })
+            SettingsButton(R.string.maint_repair, onClick = {
+                val msg = if (SpaceMaintenance.repair(context).isSuccess) repairSentMsg else repairFailedMsg
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            })
         }
 
         SettingsGroup(R.string.recovery_title) {
@@ -175,11 +197,11 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            CompactButton(R.string.recovery_open, onClick = onOpenRecovery)
+            SettingsButton(R.string.recovery_open, onClick = onOpenRecovery)
         }
 
         SettingsGroup(R.string.settings_group_danger) {
-            CompactButton(R.string.delete_space, onClick = { confirmDelete = true }, danger = true)
+            SettingsButton(R.string.delete_space, onClick = { confirmDelete = true }, danger = true)
         }
     }
 
@@ -199,6 +221,46 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
+    }
+}
+
+@Composable
+private fun ThemeChoices() {
+    val theme = LocalTheme.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        ThemePreset.entries.forEach { preset ->
+            val selected = preset == theme.preset
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { theme.choose(preset) }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(preset.primary))
+                        .then(
+                            if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                            else Modifier
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selected) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color(preset.onPrimary),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Text(stringResource(preset.labelRes), style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
 }
 
@@ -226,37 +288,25 @@ private fun SettingsGroup(@StringRes title: Int, content: @Composable ColumnScop
 }
 
 @Composable
-private fun CompactButton(
+private fun SettingsButton(
     @StringRes label: Int,
     onClick: () -> Unit,
     filled: Boolean = false,
-    danger: Boolean = false,
-    enabled: Boolean = true
+    danger: Boolean = false
 ) {
-    val shape = RoundedCornerShape(18.dp)
-    val padding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-    val modifier = Modifier.height(36.dp)
+    val modifier = Modifier.fillMaxWidth()
     if (filled) {
-        FilledTonalButton(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            shape = shape,
-            contentPadding = padding
-        ) { Text(stringResource(label), style = MaterialTheme.typography.labelMedium) }
+        Button(onClick = onClick, modifier = modifier) { Text(stringResource(label)) }
     } else {
         OutlinedButton(
             onClick = onClick,
             modifier = modifier,
-            enabled = enabled,
-            shape = shape,
             colors = if (danger) {
                 ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             } else {
                 ButtonDefaults.outlinedButtonColors()
-            },
-            contentPadding = padding
-        ) { Text(stringResource(label), style = MaterialTheme.typography.labelMedium) }
+            }
+        ) { Text(stringResource(label)) }
     }
 }
 
@@ -269,7 +319,10 @@ private fun SettingToggle(
     onChange: (Boolean) -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f),
+        Modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.5f)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -280,6 +333,17 @@ private fun SettingToggle(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        // The switch is drawn at 80% size. The whole row is the touch target, so it stays easy to hit.
+        Box(
+            Modifier.padding(start = 12.dp).size(width = 42.dp, height = 26.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Switch(
+                checked = checked,
+                onCheckedChange = null,
+                enabled = enabled,
+                modifier = Modifier.requiredSize(52.dp, 32.dp).scale(0.8f)
+            )
+        }
     }
 }

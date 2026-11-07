@@ -57,8 +57,9 @@ import io.cloak.os.transfer.TransferHub
 import io.cloak.os.transfer.TransferId
 import io.cloak.os.transfer.TransferJob
 import io.cloak.os.transfer.TransferWork
-import io.cloak.os.ui.theme.SpaceBackground
+import io.cloak.os.ui.theme.spaceBackground
 import io.cloak.os.ui.theme.SpaceTheme
+import io.cloak.os.ui.theme.spaceBackground
 
 class ShareReceiverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +78,7 @@ class ShareReceiverActivity : ComponentActivity() {
         setContent {
             SpaceTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize().background(SpaceBackground),
+                    modifier = Modifier.fillMaxSize().background(spaceBackground()),
                     color = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.onBackground
                 ) { ReceiverScreen(uris, role, inAppId) { finish() } }

@@ -44,13 +44,13 @@ import io.cloak.os.common.Logx
 import io.cloak.os.common.Role
 import io.cloak.os.debug.DebugPanel
 
-private val ICON_SIZE = 64.dp
+private val ICON_SIZE = 56.dp
 
 @Composable
 fun SpaceGrid(onAddApps: () -> Unit, modifier: Modifier = Modifier) {
     val apps by rememberSpaceApps()
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(88.dp),
+        columns = GridCells.Adaptive(72.dp),
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -83,7 +83,7 @@ private fun AppTile(app: SpaceApp) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .combinedClickable(
                     onClick = {
                         SpaceApps.launch(context, app)

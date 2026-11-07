@@ -198,4 +198,11 @@
     <string name="transfer_settle_summary">%1$d files removed, %2$d items kept, %3$d failed</string>
     <string name="settings_group_lock">Second Space lock</string>
     <string name="settings_group_danger">Remove</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="appearance_desc">Pick a colour for Cloak. It applies on this side only.</string>
+    <string name="theme_ocean">Ocean</string>
+    <string name="theme_forest">Forest</string>
+    <string name="theme_dusk">Dusk</string>
+    <string name="theme_ember">Ember</string>
+    <string name="theme_rose">Rose</string>
 </resources>

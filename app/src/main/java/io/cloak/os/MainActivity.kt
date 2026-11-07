@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import io.cloak.os.bridge.ApkExporter
 import io.cloak.os.common.Role
 import io.cloak.os.ui.HomeScreen
-import io.cloak.os.ui.theme.SpaceBackground
+import io.cloak.os.ui.theme.spaceBackground
 import io.cloak.os.ui.theme.SpaceTheme
 
 class MainActivity : ComponentActivity() {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpaceTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize().background(SpaceBackground),
+                    modifier = Modifier.fillMaxSize().background(spaceBackground()),
                     color = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.onBackground
                 ) { HomeScreen() }
