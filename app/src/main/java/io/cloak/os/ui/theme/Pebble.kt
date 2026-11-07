@@ -15,10 +15,14 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 object PebbleMath {
-    const val STEPS = 96
+    const val STEPS = 180
 
-    /** 2 is a circle and 4.5 was the earlier squircle. Around 3 gives a rounder, softer pebble. */
-    const val EXPONENT = 3.2
+    /**
+     * Superellipse exponent: |x|^n + |y|^n = 1.
+     * Fitted from a real OxygenOS pebble icon (best fit about 2.5).
+     * 2.0 is a circle, 4.0 is a classic squircle.
+     */
+    const val EXPONENT = 2.5
 
     /** x,y pairs, clockwise from the right-hand middle, inside a width by height box. */
     fun points(width: Float, height: Float, steps: Int = STEPS): FloatArray {

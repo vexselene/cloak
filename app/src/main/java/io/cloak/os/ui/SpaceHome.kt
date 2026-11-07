@@ -1,12 +1,12 @@
 package io.cloak.os.ui
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,7 +38,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
@@ -73,29 +72,6 @@ fun SpaceHome(
                         modifier = Modifier.graphicsLayer { alpha = header.titleAlpha }
                     )
                 },
-                actions = {
-                    IconButton(onClick = onAddApps) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_apps))
-                    }
-                    IconButton(onClick = onLock) {
-                        Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.lock))
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.transfer_menu)) },
-                                onClick = { menuOpen = false; onTransfer() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.settings)) },
-                                onClick = { menuOpen = false; onSettings() }
-                            )
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
@@ -123,7 +99,36 @@ fun SpaceHome(
                 shape = RoundedCornerShape(32.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
             ) {
-                SpaceGrid(onAddApps, Modifier.fillMaxSize())
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onAddApps) {
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_apps))
+                        }
+                        IconButton(onClick = onLock) {
+                            Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.lock))
+                        }
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.transfer_menu)) },
+                                    onClick = { menuOpen = false; onTransfer() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.settings)) },
+                                    onClick = { menuOpen = false; onSettings() }
+                                )
+                            }
+                        }
+                    }
+                    SpaceGrid(onAddApps, Modifier.weight(1f).fillMaxWidth())
+                }
             }
         }
     }
@@ -131,24 +136,14 @@ fun SpaceHome(
 
 @Composable
 private fun Branding(header: HeaderCollapse) {
-    Column(
-        Modifier
+    Text(
+        stringResource(R.string.space_name),
+        style = MaterialTheme.typography.headlineMedium,
+        modifier = Modifier
             .wrapContentHeight(align = Alignment.CenterVertically, unbounded = true)
             .graphicsLayer {
                 alpha = header.brandAlpha
                 translationY = -header.collapsedPx * 0.3f
-            },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Image(
-            painterResource(R.drawable.ic_logo_mark),
-            contentDescription = null,
-            modifier = Modifier.size(76.dp)
-        )
-        Text(
-            stringResource(R.string.space_name),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(top = 12.dp)
-        )
-    }
+            }
+    )
 }
