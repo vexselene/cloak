@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import io.cloak.os.R
 import kotlin.math.roundToInt
 
-private const val HEADER_FRACTION = 0.34f
-private val MIN_HEADER = 150.dp
-private val MAX_HEADER = 360.dp
+private const val HEADER_FRACTION = 0.22f
+private val MIN_HEADER = 120.dp
+private val MAX_HEADER = 300.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +90,33 @@ fun SpaceHome(
             ) {
                 Branding(header)
             }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onAddApps) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_apps))
+                }
+                IconButton(onClick = onLock) {
+                    Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.lock))
+                }
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
+                    }
+                    SpaceDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.transfer_menu)) },
+                            onClick = { menuOpen = false; onTransfer() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.settings)) },
+                            onClick = { menuOpen = false; onSettings() }
+                        )
+                    }
+                }
+            }
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -99,36 +125,7 @@ fun SpaceHome(
                 shape = RoundedCornerShape(32.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
             ) {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onAddApps) {
-                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_apps))
-                        }
-                        IconButton(onClick = onLock) {
-                            Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.lock))
-                        }
-                        Box {
-                            IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
-                            }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.transfer_menu)) },
-                                    onClick = { menuOpen = false; onTransfer() }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.settings)) },
-                                    onClick = { menuOpen = false; onSettings() }
-                                )
-                            }
-                        }
-                    }
-                    SpaceGrid(onAddApps, Modifier.weight(1f).fillMaxWidth())
-                }
+                SpaceGrid(onAddApps, Modifier.fillMaxSize())
             }
         }
     }
@@ -138,7 +135,7 @@ fun SpaceHome(
 private fun Branding(header: HeaderCollapse) {
     Text(
         stringResource(R.string.space_name),
-        style = MaterialTheme.typography.headlineMedium,
+        style = MaterialTheme.typography.headlineLarge,
         modifier = Modifier
             .wrapContentHeight(align = Alignment.CenterVertically, unbounded = true)
             .graphicsLayer {
