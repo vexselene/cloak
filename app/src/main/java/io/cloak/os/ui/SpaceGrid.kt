@@ -109,7 +109,7 @@ private fun AppTile(app: SpaceApp) {
                 textAlign = TextAlign.Center
             )
         }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        SpaceDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(if (app.suspended) R.string.unfreeze else R.string.freeze)) },
                 onClick = {

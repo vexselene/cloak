@@ -44,6 +44,13 @@ private fun ThemePreset.toColorScheme() = darkColorScheme(
     onSurface = Color(onSurface),
     surfaceVariant = Color(surfaceVariant),
     onSurfaceVariant = Color(onSurfaceVariant),
+    surfaceContainerLowest = Color(background),
+    surfaceContainerLow = Color(surface),
+    surfaceContainer = Color(surface),
+    surfaceContainerHigh = Color(surfaceVariant),
+    surfaceContainerHighest = Color(surfaceVariant),
+    surfaceBright = Color(surfaceVariant),
+    surfaceDim = Color(background),
     error = Color(0xFFFFB4AB)
 )
 
