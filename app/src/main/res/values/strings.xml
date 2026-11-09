@@ -203,6 +203,6 @@
     <string name="theme_ocean">Ocean</string>
     <string name="theme_forest">Forest</string>
     <string name="theme_dusk">Dusk</string>
-    <string name="theme_ember">Ember</string>
+    <string name="theme_amoled">Amoled</string>
     <string name="theme_rose">Rose</string>
 </resources>
