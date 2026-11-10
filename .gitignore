@@ -38,6 +38,7 @@ deploymentTargetDropDown.xml
 render.experimental.xml
 
 # Keystore files
+keystore.properties
 *.jks
 *.keystore
 
@@ -68,3 +69,5 @@ hs_err_pid*
 replay_pid*
 
 !gradle/wrapper/gradle-wrapper.jar
+/ctxbundledump/
+/adb/
