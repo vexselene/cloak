@@ -3,16 +3,32 @@ package io.cloak.os.transfer
 import android.net.Uri
 import java.util.Locale
 
-enum class ConflictPolicy { RENAME, REPLACE, SKIP }
+/** ASK pauses at the first clash and waits for the user. The others decide without asking. */
+enum class ConflictPolicy { ASK, RENAME, REPLACE, SKIP }
+
+enum class ConflictAction { REPLACE, RENAME, SKIP }
 
 enum class Op { COPY, MOVE }
 
 enum class Phase { PREPARING, COPYING, SETTLING, DONE, CANCELLED, FAILED }
 
+data class ConflictAnswer(val id: Int, val action: ConflictAction, val applyToAll: Boolean)
+
+/** A file that already exists in the destination. The transfer is paused until it is answered. */
+data class Conflict(
+    val id: Int,
+    val name: String,
+    /** Folder inside the transfer, empty for a file picked directly. */
+    val folder: String,
+    val newSize: Long,
+    val existingSize: Long,
+    val move: Boolean
+)
+
 class TransferJob(
     val sources: List<Uri>,
     val destTree: Uri,
-    val policy: ConflictPolicy,
+    val policy: ConflictPolicy = ConflictPolicy.ASK,
     val op: Op = Op.COPY,
     /** Set for in-app transfers. Names the move so the report can be matched to its originals. */
     val id: String? = null,
@@ -36,7 +52,11 @@ data class TransferState(
     /** A finished in-app move: the originals are removed when Cloak is next opened. */
     val needsSettle: Boolean = false,
     /** This state describes removing originals, not copying. */
-    val settle: Boolean = false
+    val settle: Boolean = false,
+    /** Set while the transfer is paused on a clash. */
+    val conflict: Conflict? = null,
+    /** The transfer was cancelled because nobody answered a clash. */
+    val timedOut: Boolean = false
 ) {
     val running: Boolean
         get() = phase == Phase.PREPARING || phase == Phase.COPYING || phase == Phase.SETTLING

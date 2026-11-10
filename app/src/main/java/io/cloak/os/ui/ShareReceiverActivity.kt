@@ -12,12 +12,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -26,7 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,7 +55,6 @@ import io.cloak.os.transfer.TransferHub
 import io.cloak.os.transfer.TransferId
 import io.cloak.os.transfer.TransferJob
 import io.cloak.os.transfer.TransferWork
-import io.cloak.os.ui.theme.spaceBackground
 import io.cloak.os.ui.theme.SpaceTheme
 import io.cloak.os.ui.theme.spaceBackground
 
@@ -96,12 +93,11 @@ class ShareReceiverActivity : ComponentActivity() {
 private fun ReceiverScreen(uris: List<Uri>, role: Role, inAppId: String?, onClose: () -> Unit) {
     val context = LocalContext.current
     val state by TransferHub.state.collectAsState()
-    var policy by rememberSaveable { mutableStateOf(ConflictPolicy.RENAME) }
     var op by rememberSaveable { mutableStateOf(Op.COPY) }
     var started by rememberSaveable { mutableStateOf(false) }
     var notice by remember { mutableStateOf<Int?>(null) }
 
-    // A card left over from an earlier transfer must not hide the options for this one.
+    // A card left over from an earlier transfer must not hide the buttons for this one.
     LaunchedEffect(Unit) { if (!started) TransferHub.clear() }
 
     fun begin(dest: Uri) {
@@ -109,8 +105,14 @@ private fun ReceiverScreen(uris: List<Uri>, role: Role, inAppId: String?, onClos
         if (Grants.persist(context, dest, true)) taken.add(dest)
         uris.filter { DocTree.isTree(it) || DocTree.isDocument(it) }
             .forEach { if (Grants.persist(context, it, false)) taken.add(it) }
-        val effective = if (op == Op.MOVE && policy == ConflictPolicy.SKIP) ConflictPolicy.RENAME else policy
-        val job = TransferJob(uris, dest, effective, op, inAppId, taken)
+        val job = TransferJob(
+            sources = uris,
+            destTree = dest,
+            policy = ConflictPolicy.ASK,
+            op = op,
+            id = inAppId,
+            releaseAfter = taken
+        )
         if (TransferHub.start(context, TransferWork.Copy(job))) started = true
         else notice = R.string.transfer_busy
     }
@@ -123,86 +125,75 @@ private fun ReceiverScreen(uris: List<Uri>, role: Role, inAppId: String?, onClos
     }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { openPicker() }
 
-    val current = state
-    val showCard = current != null && (started || current.running)
+    /** The button decides copy or move. The picker opens, and the transfer starts when a folder is chosen. */
+    fun choose(chosen: Op) {
+        op = chosen
+        val needsPermission = Build.VERSION.SDK_INT >= 33 && role == Role.MAIN &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        if (needsPermission) ask.launch(Manifest.permission.POST_NOTIFICATIONS) else openPicker()
+    }
 
-    Column(
-        Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            stringResource(
-                if (role == Role.AGENT) R.string.transfer_title_space else R.string.transfer_title_personal
-            ),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        when {
-            showCard && current != null -> {
-                TransferCard(
-                    current,
-                    onCancel = { TransferHub.cancel() },
-                    onDismiss = {
-                        TransferHub.clear()
-                        onClose()
+    val current = state
+    val showCard = current != null && (started || current.running || uris.isEmpty())
+
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                stringResource(
+                    if (role == Role.AGENT) R.string.transfer_title_space else R.string.transfer_title_personal
+                ),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            when {
+                showCard && current != null -> {
+                    TransferCard(
+                        current,
+                        onCancel = { TransferHub.cancel() },
+                        onDismiss = {
+                            TransferHub.clear()
+                            onClose()
+                        }
+                    )
+                }
+                uris.isEmpty() -> {
+                    Text(stringResource(R.string.transfer_nothing))
+                    Button(onClick = onClose) { Text(stringResource(R.string.transfer_close)) }
+                }
+                else -> {
+                    Text(stringResource(R.string.transfer_items, uris.size))
+                    Button(onClick = { choose(Op.COPY) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.transfer_copy_to))
                     }
-                )
-            }
-            uris.isEmpty() -> {
-                Text(stringResource(R.string.transfer_nothing))
-                Button(onClick = onClose) { Text(stringResource(R.string.transfer_close)) }
-            }
-            else -> {
-                Text(stringResource(R.string.transfer_items, uris.size))
-                if (inAppId != null) {
-                    Text(stringResource(R.string.transfer_op), style = MaterialTheme.typography.titleSmall)
-                    ChoiceRow(op == Op.COPY, R.string.transfer_op_copy) { op = Op.COPY }
-                    ChoiceRow(op == Op.MOVE, R.string.transfer_op_move) {
-                        op = Op.MOVE
-                        if (policy == ConflictPolicy.SKIP) policy = ConflictPolicy.RENAME
-                    }
-                    if (op == Op.MOVE) {
+                    if (inAppId != null) {
+                        OutlinedButton(onClick = { choose(Op.MOVE) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.transfer_move_to))
+                        }
                         Text(
                             stringResource(R.string.transfer_move_note),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    notice?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+                    TextButton(
+                        onClick = {
+                            uris.forEach { Grants.release(context, it) }
+                            onClose()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.cancel)) }
                 }
-                Text(stringResource(R.string.transfer_duplicates), style = MaterialTheme.typography.titleSmall)
-                ChoiceRow(policy == ConflictPolicy.RENAME, R.string.transfer_rename) { policy = ConflictPolicy.RENAME }
-                ChoiceRow(policy == ConflictPolicy.REPLACE, R.string.transfer_replace) { policy = ConflictPolicy.REPLACE }
-                if (op == Op.COPY) {
-                    ChoiceRow(policy == ConflictPolicy.SKIP, R.string.transfer_skip) { policy = ConflictPolicy.SKIP }
-                }
-                Button(
-                    onClick = {
-                        val needsPermission = Build.VERSION.SDK_INT >= 33 && role == Role.MAIN &&
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                                PackageManager.PERMISSION_GRANTED
-                        if (needsPermission) ask.launch(Manifest.permission.POST_NOTIFICATIONS) else openPicker()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(stringResource(R.string.transfer_choose)) }
-                notice?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
-                TextButton(
-                    onClick = {
-                        uris.forEach { Grants.release(context, it) }
-                        onClose()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(stringResource(R.string.cancel)) }
             }
         }
-    }
-}
-
-@Composable
-private fun ChoiceRow(selected: Boolean, @StringRes label: Int, onSelect: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onSelect),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Text(stringResource(label))
+        ConflictCardHost(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .safeDrawingPadding()
+                .padding(12.dp)
+        )
     }
 }
