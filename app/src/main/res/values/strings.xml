@@ -205,4 +205,18 @@
     <string name="theme_dusk">Dusk</string>
     <string name="theme_amoled">Amoled</string>
     <string name="theme_rose">Rose</string>
+    <string name="transfer_copy_to">Copy to folder…</string>
+    <string name="transfer_move_to">Move to folder…</string>
+    <string name="transfer_paused">Paused: waiting for your choice</string>
+    <string name="transfer_notif_conflict">%1$s already exists. Tap to choose</string>
+    <string name="transfer_timed_out">No answer for 10 minutes, so the copy was cancelled. Files copied so far are kept.</string>
+    <string name="conflict_title">File already exists</string>
+    <string name="conflict_in_folder">in %1$s</string>
+    <string name="conflict_sizes">New: %1$s. Existing: %2$s</string>
+    <string name="conflict_size_unknown">unknown size</string>
+    <string name="conflict_replace">Replace</string>
+    <string name="conflict_keep_both">Keep both</string>
+    <string name="conflict_skip">Skip</string>
+    <string name="conflict_apply_all">Apply to all remaining conflicts</string>
+    <string name="conflict_move_note">A skipped file is not moved, so its original stays where it is.</string>
 </resources>

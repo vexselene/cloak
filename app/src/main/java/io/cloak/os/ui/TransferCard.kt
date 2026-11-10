@@ -29,13 +29,18 @@ import io.cloak.os.transfer.transferTitle
 @Composable
 fun TransferCardHost(modifier: Modifier = Modifier) {
     val state by TransferHub.state.collectAsState()
-    val s = state ?: return
-    TransferCard(
-        s,
-        onCancel = { TransferHub.cancel() },
-        onDismiss = { TransferHub.clear() },
-        modifier = modifier.padding(12.dp)
-    )
+    Column(modifier) {
+        ConflictCardHost(Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
+        val s = state
+        if (s != null) {
+            TransferCard(
+                s,
+                onCancel = { TransferHub.cancel() },
+                onDismiss = { TransferHub.clear() },
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+    }
 }
 
 @Composable
@@ -72,6 +77,13 @@ fun TransferCard(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+                if (state.conflict != null) {
+                    Text(
+                        stringResource(R.string.transfer_paused),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 state.recent.forEach {
                     Text(
                         "✓ $it", maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -101,6 +113,13 @@ fun TransferCard(
                 if (state.interrupted) {
                     Text(
                         stringResource(R.string.transfer_interrupted),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (state.timedOut) {
+                    Text(
+                        stringResource(R.string.transfer_timed_out),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )

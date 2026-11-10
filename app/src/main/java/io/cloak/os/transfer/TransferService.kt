@@ -15,6 +15,7 @@ import io.cloak.os.MainActivity
 import io.cloak.os.R
 import io.cloak.os.common.Logx
 import io.cloak.os.common.Role
+import io.cloak.os.ui.ShareReceiverActivity
 
 class TransferService : Service() {
     private var worker: Thread? = null
@@ -77,6 +78,7 @@ class TransferService : Service() {
             notifyProgress(s)
         }
         TransferHub.attach { engine.cancelled = true }
+        TransferHub.attachAnswer(engine::answer)
         val result = engine.run()
         // Saved before the final state is published, so a poll right after always finds it.
         engine.report?.let { ReportStore.save(this, it, deliver = Role.detect(this) == Role.MAIN) }
@@ -97,7 +99,7 @@ class TransferService : Service() {
 
     private fun notifyProgress(s: TransferState) {
         val now = SystemClock.elapsedRealtime()
-        if (s.running && now - lastNotify < NOTIFY_MS) return
+        if (s.running && s.conflict == null && now - lastNotify < NOTIFY_MS) return
         lastNotify = now
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(s))
     }
@@ -107,13 +109,22 @@ class TransferService : Service() {
             .setSmallIcon(R.drawable.ic_stat_transfer)
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        val conflict = s.conflict
         if (s.running) {
             b.setContentTitle(getString(transferTitle(s)))
-                .setContentText(s.current.ifEmpty { getString(transferTitle(s)) })
+                .setContentText(
+                    if (conflict != null) getString(R.string.transfer_notif_conflict, conflict.name)
+                    else s.current.ifEmpty { getString(transferTitle(s)) }
+                )
                 .setOngoing(true)
                 .addAction(cancelAction())
-            val f = s.fraction
-            if (f != null) b.setProgress(100, (f * 100).toInt(), false) else b.setProgress(0, 0, true)
+            if (conflict != null) {
+                b.setContentIntent(openIntent())
+                b.setProgress(0, 0, false)
+            } else {
+                val f = s.fraction
+                if (f != null) b.setProgress(100, (f * 100).toInt(), false) else b.setProgress(0, 0, true)
+            }
         } else {
             val text = when {
                 s.needsSettle -> getString(R.string.transfer_move_pending)
@@ -121,16 +132,20 @@ class TransferService : Service() {
                 else -> getString(R.string.transfer_summary, s.copied, s.skipped, s.failed)
             }
             b.setContentTitle(getString(transferTitle(s))).setContentText(text).setAutoCancel(true)
-            if (Role.detect(this) == Role.MAIN) {
-                b.setContentIntent(
-                    PendingIntent.getActivity(
-                        this, 1, Intent(this, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                )
-            }
+            if (Role.detect(this) == Role.MAIN) b.setContentIntent(openIntent())
         }
         return b.build()
+    }
+
+    /** Opens Cloak in the personal profile, or the receiver screen inside the space. */
+    private fun openIntent(): PendingIntent {
+        val target = if (Role.detect(this) == Role.MAIN) MainActivity::class.java
+        else ShareReceiverActivity::class.java
+        return PendingIntent.getActivity(
+            this, 1,
+            Intent(this, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
     }
 
     private fun cancelAction(): Notification.Action {

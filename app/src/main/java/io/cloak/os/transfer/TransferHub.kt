@@ -17,6 +17,7 @@ object TransferHub {
 
     @Volatile private var pending: TransferWork? = null
     @Volatile private var canceller: (() -> Unit)? = null
+    @Volatile private var answerer: ((ConflictAnswer) -> Unit)? = null
 
     val isRunning: Boolean get() = _state.value?.running == true
 
@@ -46,8 +47,14 @@ object TransferHub {
         return work
     }
 
+    /** Passing null also forgets the answer handler, so a stale engine can never be answered. */
     internal fun attach(cancel: (() -> Unit)?) {
         canceller = cancel
+        if (cancel == null) answerer = null
+    }
+
+    internal fun attachAnswer(handler: ((ConflictAnswer) -> Unit)?) {
+        answerer = handler
     }
 
     internal fun publish(s: TransferState) {
@@ -56,6 +63,11 @@ object TransferHub {
 
     fun cancel() {
         canceller?.invoke()
+    }
+
+    /** Answers the clash the transfer is paused on. */
+    fun answer(a: ConflictAnswer) {
+        answerer?.invoke(a)
     }
 
     fun clear() {

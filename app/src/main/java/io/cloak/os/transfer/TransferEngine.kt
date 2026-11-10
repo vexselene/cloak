@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.provider.DocumentsContract
 import io.cloak.os.common.Logx
 import java.io.IOException
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /** Pulls files and folders into a folder tree picked in this profile. Runs on one background thread. */
 class TransferEngine(
@@ -34,8 +36,15 @@ class TransferEngine(
     private val resolver = appContext.contentResolver
     private val dirMime = DocumentsContract.Document.MIME_TYPE_DIR
     private val dirUris = HashMap<List<String>, Uri>()
-    private val listings = HashMap<Uri, Map<String, DocEntry>>()
+    private val listings = HashMap<Uri, MutableMap<String, DocEntry>>()
     private val recent = ArrayDeque<String>()
+
+    private val rules = ConflictRules(job.policy)
+    private val answers = LinkedBlockingQueue<ConflictAnswer>()
+    @Volatile private var waitingFor = 0
+    private var conflictSeq = 0
+    private var pending: Conflict? = null
+    private var timedOut = false
 
     private val count = job.sources.size
     private val planned = IntArray(count)
@@ -54,6 +63,11 @@ class TransferEngine(
     private var current = ""
     private var lastWritten = 0L
     private var lastPublish = 0L
+
+    /** Called from the UI. Ignored unless it answers the clash the engine is waiting on right now. */
+    fun answer(a: ConflictAnswer) {
+        if (a.id != 0 && a.id == waitingFor) answers.offer(a)
+    }
 
     fun run(): TransferState {
         publish(Phase.PREPARING, force = true)
@@ -154,17 +168,20 @@ class TransferEngine(
 
     private fun docUri(id: String): Uri = DocumentsContract.buildDocumentUriUsingTree(job.destTree, id)
 
-    private fun listing(dir: Uri): Map<String, DocEntry> = listings.getOrPut(dir) {
+    /** Names in a destination folder, keyed by lower-case name. Kept up to date as files are created. */
+    private fun listing(dir: Uri): MutableMap<String, DocEntry> = listings.getOrPut(dir) {
+        val map = HashMap<String, DocEntry>()
         runCatching { DocTree.children(appContext, job.destTree, DocumentsContract.getDocumentId(dir)) }
             .getOrDefault(emptyList())
-            .associateBy { it.name }
+            .forEach { map[ConflictRules.key(it.name)] = it }
+        map
     }
 
     private fun ensureDir(path: List<String>): Uri? {
         dirUris[path]?.let { return it }
         val parent = ensureDir(path.dropLast(1)) ?: return null
         val name = path.last()
-        val existing = listing(parent)[name]
+        val existing = listing(parent)[ConflictRules.key(name)]
         val uri = if (existing != null && existing.isDir) {
             docUri(existing.id)
         } else {
@@ -177,19 +194,30 @@ class TransferEngine(
     }
 
     private fun copyFile(f: PlanFile, dir: Uri): Outcome {
-        val existing = listing(dir)[f.name]?.takeIf { !it.isDir }
-        if (existing != null && job.policy == ConflictPolicy.SKIP) return Outcome.SKIPPED
+        val entries = listing(dir)
+        val existing = entries[ConflictRules.key(f.name)]?.takeIf { !it.isDir }
+        val action = if (existing != null) decide(f, existing) else ConflictAction.RENAME
+        if (existing != null && action == ConflictAction.SKIP) return Outcome.SKIPPED
 
+        val replace = existing != null && action == ConflictAction.REPLACE
         val target: Uri
         val created: Boolean
-        if (existing != null && job.policy == ConflictPolicy.REPLACE) {
-            target = docUri(existing.id)
+        var registered: String? = null
+        if (replace) {
+            target = docUri(existing!!.id)
             created = false
         } else {
             target = runCatching { DocumentsContract.createDocument(resolver, dir, f.mime, f.name) }
                 .onFailure { Logx.e(TAG, "create file failed", it) }
                 .getOrNull() ?: return Outcome.FAILED
             created = true
+            registered = register(entries, f, target, collided = existing != null)
+        }
+
+        fun discard() {
+            if (!created) return
+            deleteQuiet(target)
+            registered?.let { entries.remove(it) }
         }
 
         var written = 0L
@@ -211,21 +239,21 @@ class TransferEngine(
                 }
             }
         } catch (c: Cancelled) {
-            if (created) deleteQuiet(target)
+            discard()
             throw c
         } catch (e: SecurityException) {
             interrupted = true
-            if (created) deleteQuiet(target)
+            discard()
             Logx.e(TAG, "access lost", e)
             return Outcome.FAILED
         } catch (e: Exception) {
-            if (created) deleteQuiet(target)
+            discard()
             Logx.e(TAG, "copy failed", e)
             return Outcome.FAILED
         }
         if (f.size >= 0 && written != f.size) {
             Logx.w(TAG, "size mismatch")
-            if (created) deleteQuiet(target)
+            discard()
             return Outcome.FAILED
         }
         if (job.op == Op.MOVE) {
@@ -233,12 +261,64 @@ class TransferEngine(
             val onDisk = DocTree.describe(appContext, target).size
             if (onDisk >= 0 && onDisk != written) {
                 Logx.w(TAG, "destination size differs")
-                if (created) deleteQuiet(target)
+                discard()
                 return Outcome.FAILED
             }
         }
         lastWritten = written
         return Outcome.COPIED
+    }
+
+    /** Remembers a file we just created, under the name the provider actually gave it. */
+    private fun register(
+        entries: MutableMap<String, DocEntry>, f: PlanFile, target: Uri, collided: Boolean
+    ): String {
+        val id = DocumentsContract.getDocumentId(target)
+        val name = if (collided) DocTree.describe(appContext, target).name else f.name
+        val key = ConflictRules.key(name)
+        entries[key] = DocEntry(id, name, f.mime, f.size)
+        return key
+    }
+
+    private fun decide(f: PlanFile, existing: DocEntry): ConflictAction {
+        rules.decided()?.let { return it }
+        val answer = ask(f, existing)
+        rules.record(answer)
+        return answer.action
+    }
+
+    /** Pauses the transfer until the user answers, cancels, or takes too long. */
+    private fun ask(f: PlanFile, existing: DocEntry): ConflictAnswer {
+        val id = ++conflictSeq
+        answers.clear()
+        waitingFor = id
+        pending = Conflict(id, f.name, f.dir.joinToString("/"), f.size, existing.size, job.op == Op.MOVE)
+        publish(Phase.COPYING, force = true)
+        val deadline = SystemClock.elapsedRealtime() + ASK_TIMEOUT_MS
+        var answer: ConflictAnswer? = null
+        try {
+            while (answer == null) {
+                if (cancelled) throw Cancelled()
+                if (SystemClock.elapsedRealtime() > deadline) {
+                    timedOut = true
+                    cancelled = true
+                    throw Cancelled()
+                }
+                val a = try {
+                    answers.poll(POLL_MS, TimeUnit.MILLISECONDS)
+                } catch (_: InterruptedException) {
+                    cancelled = true
+                    throw Cancelled()
+                }
+                if (a != null && a.id == id) answer = a
+            }
+        } finally {
+            waitingFor = 0
+            pending = null
+        }
+        val result = answer ?: throw Cancelled()
+        publish(Phase.COPYING, force = true)
+        return result
     }
 
     private fun deleteQuiet(uri: Uri) {
@@ -257,7 +337,8 @@ class TransferEngine(
         phase = phase, filesDone = processed, filesTotal = filesTotal,
         copied = copied, skipped = skipped, failed = failed,
         bytesDone = bytesDone, bytesTotal = bytesTotal,
-        current = current, recent = recent.toList(), interrupted = interrupted, op = job.op
+        current = current, recent = recent.toList(), interrupted = interrupted, op = job.op,
+        conflict = pending, timedOut = timedOut
     )
 
     private fun publish(phase: Phase, force: Boolean) {
@@ -288,5 +369,7 @@ class TransferEngine(
         const val TAG = "SecondSpace/Transfer"
         const val BUFFER = 256 * 1024
         const val PUBLISH_MS = 250L
+        const val POLL_MS = 250L
+        const val ASK_TIMEOUT_MS = 10L * 60L * 1000L
     }
 }
