@@ -45,8 +45,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.runtime.mutableIntStateOf
 import io.cloak.os.bridge.RecoveryStore
+import androidx.compose.runtime.withFrameNanos
+import androidx.lifecycle.Lifecycle
+import androidx.compose.runtime.collectAsState
+import io.cloak.os.bridge.SpaceEvents
 
 private const val TAG = "SecondSpace/Home"
+private const val UNLOCK_SETTLE_MS = 100L
+private const val AUTO_UNLOCK_GAP_MS = 20_000L
 
 private enum class Page { GRID, ADD, SETTINGS, RECOVERY, RESTORE, TRANSFER }
 
@@ -57,6 +63,8 @@ fun HomeScreen() {
     val scope = rememberCoroutineScope()
     val reconciler = rememberTransferReconciler()
     var checkTick by remember { mutableIntStateOf(0) }
+    val pulse by SpaceEvents.pulse.collectAsState()
+    LaunchedEffect(pulse) { if (pulse > 0) checkTick++ }
     val state by rememberSpaceState(checkTick)
     var page by remember { mutableStateOf(Page.GRID) }
     var restoring by remember { mutableStateOf(false) }
@@ -86,6 +94,13 @@ fun HomeScreen() {
         }
     }
 
+    val unlockLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        Logx.d(TAG, "unlock result=${r.resultCode}")
+    }
+    fun requestUnlock() {
+        runCatching { unlockLauncher.launch(Commands.build(context, Commands.UNLOCK)) }
+            .onFailure { Logx.e(TAG, "unlock failed", it) }
+    }
     OnStart {
         when (SpaceStateReader.read(context)) {
             SpaceState.UNLOCKED -> {
@@ -96,9 +111,26 @@ fun HomeScreen() {
                     reconciler.trigger()
                 }
             }
-            SpaceState.PAUSED, SpaceState.LOCKED ->
-                Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "auto unlock failed", it) }
+            SpaceState.PAUSED, SpaceState.LOCKED,
             SpaceState.NONE, SpaceState.UNPAIRED, SpaceState.FOREIGN -> Unit
+        }
+    }
+
+    var lastAutoUnlock by remember { mutableLongStateOf(0L) }
+    val hostLifecycle = remember(context) { context.findActivity().lifecycle }
+
+    OnResume {
+        val s = SpaceStateReader.read(context)
+        val now = System.currentTimeMillis()
+        if ((s == SpaceState.PAUSED || s == SpaceState.LOCKED) && now - lastAutoUnlock > AUTO_UNLOCK_GAP_MS) {
+            lastAutoUnlock = now
+            scope.launch {
+                withFrameNanos { }
+                delay(UNLOCK_SETTLE_MS)
+                val again = SpaceStateReader.read(context)
+                val stillHere = hostLifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                if (stillHere && (again == SpaceState.PAUSED || again == SpaceState.LOCKED)) requestUnlock()
+            }
         }
     }
 
@@ -173,7 +205,7 @@ fun HomeScreen() {
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
             onUnlock = {
-                Commands.send(context, Commands.UNLOCK).onFailure { Logx.e(TAG, "unlock failed", it) }
+                requestUnlock()
             }
         )
         SpaceState.UNLOCKED -> if (opening) OpeningScreen() else when (page) {

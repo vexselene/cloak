@@ -76,3 +76,8 @@ and privacy tool, not a hardened security product.
   64-bit id.
 - Cloak keeps persisted access to picked folders until the move is settled or seven days
   pass. Forwarded access is dropped after six hours.
+- `EventAlias` is an exported alias of `MainActivity` in the personal copy, reachable by a
+  cross-profile filter from the space. Events are hints and are not signed. An event only brings
+  Cloak forward and makes it re-read the real state, and it never triggers an action. Any app in
+  either profile can send it, which only brings Cloak to the front. `MainActivity` is exported
+  already, so this adds no capability.

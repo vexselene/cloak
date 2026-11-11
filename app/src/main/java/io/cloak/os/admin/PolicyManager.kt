@@ -94,6 +94,23 @@ object PolicyManager {
                     )
                 }
             }
+            step("event filter") {
+                if (agent) {
+                    val both = DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT or
+                            DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                    val f = IntentFilter(Commands.EVENT_ACTION).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+                    dpm.addCrossProfileIntentFilter(admin, f, both)
+                }
+            }
+            step("event alias") {
+                if (agent) {
+                    context.packageManager.setComponentEnabledSetting(
+                        ComponentName(context.packageName, "io.cloak.os.EventAlias"),
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                }
+            }
             step("work lock") { requireWorkLock(context).getOrThrow() }
             step("installs") { allowInstalls(context).getOrThrow() }
             step("launcher icon") {

@@ -34,7 +34,8 @@ object Commands {
     const val TRANSFER_REPORT = "transfer_report"
     const val TRANSFER_DONE = "transfer_done"
     const val EXTRA_REPORT = "report"
-
+    const val EVENT_ACTION = "io.cloak.os.action.SPACE_EVENT"
+    const val EXTRA_EVENT = "event"
     val TRANSFER_KINDS = setOf("files", "folder")
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 
