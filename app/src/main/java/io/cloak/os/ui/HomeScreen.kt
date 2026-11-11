@@ -1,10 +1,8 @@
 package io.cloak.os.ui
 
-import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Intent
 import android.os.PersistableBundle
-import io.cloak.os.common.Logx
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,38 +18,39 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import io.cloak.os.R
 import io.cloak.os.admin.SpaceAdminReceiver
 import io.cloak.os.bridge.Auth
 import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.LockSettings
+import io.cloak.os.bridge.RecoveryStore
+import io.cloak.os.bridge.SpaceEvents
 import io.cloak.os.bridge.SpaceState
 import io.cloak.os.bridge.SpaceStateReader
+import io.cloak.os.common.Logx
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.snapshotFlow
-import io.cloak.os.bridge.LockSettings
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import androidx.compose.runtime.mutableIntStateOf
-import io.cloak.os.bridge.RecoveryStore
-import androidx.compose.runtime.withFrameNanos
-import androidx.lifecycle.Lifecycle
-import androidx.compose.runtime.collectAsState
-import io.cloak.os.bridge.SpaceEvents
 
 private const val TAG = "SecondSpace/Home"
-private const val UNLOCK_SETTLE_MS = 100L
+private const val UNLOCK_SETTLE_MS = 400L
 private const val AUTO_UNLOCK_GAP_MS = 20_000L
 
 private enum class Page { GRID, ADD, SETTINGS, RECOVERY, RESTORE, TRANSFER }
@@ -63,22 +62,44 @@ fun HomeScreen() {
     val scope = rememberCoroutineScope()
     val reconciler = rememberTransferReconciler()
     var checkTick by remember { mutableIntStateOf(0) }
+    val state by rememberSpaceState(checkTick)
     val pulse by SpaceEvents.pulse.collectAsState()
     LaunchedEffect(pulse) { if (pulse > 0) checkTick++ }
-    val state by rememberSpaceState(checkTick)
     var page by remember { mutableStateOf(Page.GRID) }
     var restoring by remember { mutableStateOf(false) }
 
+    // Onboarding: a space that already exists was set up before this existed, so it counts as done.
+    var onboardingDone by remember {
+        OnboardingStore.initialize(context, spaceExists = state != SpaceState.NONE)
+        mutableStateOf(OnboardingStore.isDone(context))
+    }
+    var obStep by remember { mutableIntStateOf(OnboardingStore.step(context)) }
+    val showWizard = state == SpaceState.UNLOCKED && !onboardingDone
+    fun goStep(step: Int) {
+        obStep = OnboardingRules.clamp(step)
+        OnboardingStore.setStep(context, obStep)
+    }
+    fun finishOnboarding() {
+        OnboardingStore.finish(context)
+        onboardingDone = true
+        obStep = 0
+        page = Page.GRID
+    }
+
     LaunchedEffect(state) { if (state != SpaceState.UNLOCKED) page = Page.GRID }
     LaunchedEffect(state) { if (state != SpaceState.UNPAIRED) restoring = false }
+    LaunchedEffect(state) {
+        if (state == SpaceState.NONE || state == SpaceState.FOREIGN) {
+            RecoveryStore.setEnabledHint(context, false)
+        }
+    }
 
     val spaceApps by rememberSpaceApps()
     var lastSession by remember { mutableLongStateOf(0L) }
+    var appsChanged by remember { mutableStateOf(false) }
     var opening by remember {
         mutableStateOf(state == SpaceState.UNLOCKED && LockSettings.load(context).hideApps)
     }
-
-    var appsChanged by remember { mutableStateOf(false) }
     OnSpacePackagesChanged { appsChanged = true }
 
     fun sendSession() {
@@ -101,6 +122,7 @@ fun HomeScreen() {
         runCatching { unlockLauncher.launch(Commands.build(context, Commands.UNLOCK)) }
             .onFailure { Logx.e(TAG, "unlock failed", it) }
     }
+
     OnStart {
         when (SpaceStateReader.read(context)) {
             SpaceState.UNLOCKED -> {
@@ -118,7 +140,6 @@ fun HomeScreen() {
 
     var lastAutoUnlock by remember { mutableLongStateOf(0L) }
     val hostLifecycle = remember(context) { context.findActivity().lifecycle }
-
     OnResume {
         val s = SpaceStateReader.read(context)
         val now = System.currentTimeMillis()
@@ -145,40 +166,29 @@ fun HomeScreen() {
         }
     }
 
-    LaunchedEffect(state) {
-        if (state == SpaceState.NONE || state == SpaceState.FOREIGN) {
-            RecoveryStore.setEnabledHint(context, false)
-        }
-    }
-
     BackHandler(enabled = page != Page.GRID || restoring) {
         when {
             restoring -> restoring = false
             page == Page.RESTORE -> page = Page.RECOVERY
-            page == Page.RECOVERY -> page = Page.SETTINGS
+            page == Page.RECOVERY -> page = if (onboardingDone) Page.SETTINGS else Page.GRID
             else -> page = Page.GRID
         }
     }
+    BackHandler(enabled = showWizard && page == Page.GRID && obStep > 0) {
+        goStep(OnboardingRules.previous(obStep))
+    }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            scope.launch {
-                delay(3000)
-                repeat(30) { i ->
-                    val st = SpaceStateReader.read(context)
-                    val r = if (st != SpaceState.NONE) Commands.send(context, Commands.SET_LOCK) else null
-                    Logx.d(TAG, "set_lock attempt $i state=$st result=$r")
-                    if (r?.isSuccess == true) return@launch
-                    delay(1000)
-                }
-            }
-        }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        checkTick++
     }
 
     when (state) {
         SpaceState.NONE -> WelcomeScreen(
             allowed = dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE),
             onCreate = {
+                OnboardingStore.reset(context)
+                onboardingDone = false
+                obStep = 0
                 val secret = Auth.generateSecret()
                 Auth.saveSecret(context, secret)
                 launcher.launch(
@@ -194,6 +204,7 @@ fun HomeScreen() {
                 )
             }
         )
+        SpaceState.FOREIGN -> ForeignScreen(onCheckAgain = { checkTick++ })
         SpaceState.UNPAIRED -> if (restoring) {
             SubPage(stringResource(R.string.restore_title), onBack = { restoring = false }) {
                 RecoveryRestoreScreen(it, onDone = { restoring = false; checkTick++ })
@@ -201,38 +212,47 @@ fun HomeScreen() {
         } else {
             UnpairedScreen(onRecover = { restoring = true })
         }
-        SpaceState.FOREIGN -> ForeignScreen(onCheckAgain = { checkTick++ })
         SpaceState.PAUSED, SpaceState.LOCKED -> LockedScreen(
             paused = state == SpaceState.PAUSED,
-            onUnlock = {
-                requestUnlock()
-            }
+            onUnlock = { requestUnlock() }
         )
-        SpaceState.UNLOCKED -> if (opening) OpeningScreen() else when (page) {
-            Page.GRID -> SpaceHome(
-                onLock = { Commands.send(context, Commands.LOCK_NOW) },
-                onAddApps = { page = Page.ADD },
-                onTransfer = { page = Page.TRANSFER },
-                onSettings = { page = Page.SETTINGS }
+        SpaceState.UNLOCKED -> when {
+            opening -> OpeningScreen()
+            showWizard && page == Page.GRID -> OnboardingFlow(
+                step = obStep,
+                onStep = { goStep(it) },
+                onFinish = { finishOnboarding() },
+                onOpenRecovery = { page = Page.RECOVERY }
             )
-            Page.ADD -> SubPage(stringResource(R.string.add_apps), onBack = { page = Page.GRID }) {
-                AddAppsScreen(it)
-            }
-            Page.SETTINGS -> SubPage(stringResource(R.string.settings), onBack = { page = Page.GRID }) {
-                SettingsScreen(it, onOpenRecovery = { page = Page.RECOVERY })
-            }
-            Page.RECOVERY -> SubPage(stringResource(R.string.recovery_title), onBack = { page = Page.SETTINGS }) {
-                RecoverySetupScreen(
-                    modifier = it,
-                    onRestore = { page = Page.RESTORE },
-                    onDone = { page = Page.SETTINGS }
+            else -> when (page) {
+                Page.GRID -> SpaceHome(
+                    onLock = { Commands.send(context, Commands.LOCK_NOW) },
+                    onAddApps = { page = Page.ADD },
+                    onTransfer = { page = Page.TRANSFER },
+                    onSettings = { page = Page.SETTINGS }
                 )
-            }
-            Page.RESTORE -> SubPage(stringResource(R.string.restore_title), onBack = { page = Page.RECOVERY }) {
-                RecoveryRestoreScreen(it, onDone = { page = Page.SETTINGS; checkTick++ })
-            }
-            Page.TRANSFER -> SubPage(stringResource(R.string.transfer_menu), onBack = { page = Page.GRID }) {
-                TransferScreen(it, onCheck = { reconciler.checkNow() })
+                Page.ADD -> SubPage(stringResource(R.string.add_apps), onBack = { page = Page.GRID }) {
+                    AddAppsScreen(it)
+                }
+                Page.SETTINGS -> SubPage(stringResource(R.string.settings), onBack = { page = Page.GRID }) {
+                    SettingsScreen(it, onOpenRecovery = { page = Page.RECOVERY })
+                }
+                Page.RECOVERY -> SubPage(
+                    stringResource(R.string.recovery_title),
+                    onBack = { page = if (onboardingDone) Page.SETTINGS else Page.GRID }
+                ) {
+                    RecoverySetupScreen(
+                        modifier = it,
+                        onRestore = { page = Page.RESTORE },
+                        onDone = { page = if (onboardingDone) Page.SETTINGS else Page.GRID }
+                    )
+                }
+                Page.RESTORE -> SubPage(stringResource(R.string.restore_title), onBack = { page = Page.RECOVERY }) {
+                    RecoveryRestoreScreen(it, onDone = { page = Page.SETTINGS; checkTick++ })
+                }
+                Page.TRANSFER -> SubPage(stringResource(R.string.transfer_menu), onBack = { page = Page.GRID }) {
+                    TransferScreen(it, onCheck = { reconciler.checkNow() })
+                }
             }
         }
     }
