@@ -25,7 +25,7 @@
     <string name="delete_confirm">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="welcome_title">Keep apps in a space of their own</string>
-    <string name="welcome_body">Second Space is a separate, locked area of your phone. Apps you add live there with their own data and accounts, and need your lock to open.</string>
+    <string name="welcome_body">Second Space is a separate, locked area of your phone. Apps you add live there with their own data and accounts, and need their own lock to open. Next you will create the space, give it a lock, and add your first apps.</string>
     <string name="space_locked">Second Space is locked</string>
     <string name="space_paused">Second Space is paused</string>
     <string name="locked_body">Unlock with your Second Space lock to see your apps.</string>
@@ -52,7 +52,7 @@
     <string name="maint_title">Maintenance</string>
     <string name="maint_check">Check connection</string>
     <string name="maint_reachable">Second Space is reachable</string>
-    <string name="maint_desc">If lock, freeze or privacy changes stop working, check the connection, then repair the space. If it can\'t be reached, pause and resume Work apps in Quick Settings.</string>
+    <string name="maint_desc">If lock, freeze or privacy changes stop working, check the connection, then repair the space. Repair also shows any apps left hidden while hide mode is off. If the space can\'t be reached, pause and resume Work apps in Quick Settings.</string>
     <string name="maint_unreachable">Second Space is not reachable. Pause and resume Work apps in Quick Settings.</string>
     <string name="maint_repair">Repair space</string>
     <string name="maint_repair_sent">Repair requested</string>
@@ -60,7 +60,7 @@
     <string name="privacy_send_failed">Could not reach Second Space. Setting not changed.</string>
     <string name="lock_title">Locking (experimental)</string>
     <string name="lock_hide">Hide apps when locked</string>
-    <string name="lock_hide_desc">When Second Space locks, its apps are hidden and stopped, and nothing arrives until you open it again. It locks when the screen turns off. While open, a small notification keeps the lock listener alive. If Cloak loses its pairing while apps are hidden, they cannot be shown again without deleting the space.</string>
+    <string name="lock_hide_desc">When Second Space locks, its apps are hidden and stopped, and nothing arrives until you open it again. It locks when the screen turns off. While open, a small notification keeps the lock listener alive. If Cloak loses its link to the space, hidden apps stay hidden until you reconnect with your recovery token. If the space\'s own data is cleared, Repair space shows them again.</string>
     <string name="opening_title">Opening Second Space</string>
     <string name="session_notification_title">Second Space is open</string>
     <string name="session_notification_lock">Lock</string>
@@ -69,10 +69,9 @@
     <string name="lock_shutdown_desc">Tries to hide the apps when the phone shuts down or restarts. Android only allows a short time for this, so with many or heavy apps it may not finish. Apps are hidden again after the restart either way, and always need the work PIN.</string>
     <string name="lock_boot">Hide apps again after a restart (recommended)</string>
     <string name="lock_boot_desc">After the phone restarts, Cloak hides the apps that were open before. If this is off, they stay visible until you open Cloak, which then hides them and asks for the PIN again. They always need the work PIN either way.</string>
-    <string name="lock_hide_all">Hide all packages (not implemented)</string>
+    <string name="lock_hide_all">Hide all packages (coming later)</string>
     <string name="lock_hide_all_desc">Planned: also hide apps without a launcher icon. Not available yet.</string>
     <string name="unpaired_title">Cloak cannot reach your Second Space</string>
-    <string name="unpaired_body">This copy of Cloak has lost its link to the space on this phone, most likely because Cloak\'s data was cleared. Your apps are still inside the space, but Cloak can no longer lock it, change its settings, or add and remove apps. The only way to start over is to remove the space in your phone\'s settings. That permanently deletes every app and all data in it.</string>
     <string name="unpaired_where">Look for the work profile under Accounts or Work profile and remove it. The wording differs by phone. When it is gone, come back here to create a new space.</string>
     <string name="unpaired_settings_failed">Could not open settings. Open them yourself and look for the work profile.</string>
     <string name="foreign_title">A work profile already exists</string>
@@ -81,7 +80,8 @@
     <string name="foreign_open_settings">Open system settings</string>
     <string name="foreign_tip">If this profile was created by Cloak, restart your phone once and check again. Cloak repairs its own setup when the phone starts.</string>
     <string name="unpaired_open_settings">Delete space in system settings</string>
-    <string name="unpaired_recover">Recover with recovery token (not available yet)</string>
+    <string name="unpaired_recover">Recover with recovery token</string>
+    <string name="unpaired_body">This copy of Cloak has lost its link to the space on this phone, most likely because Cloak\'s data was cleared. Your apps are still inside the space, but Cloak can no longer lock it, change its settings, or add and remove apps. If you set up a recovery token, use it to reconnect and keep everything. Otherwise the only way to start over is to remove the space in your phone\'s settings, which permanently deletes every app and all data in it.</string>
     <string name="recovery_title">Recovery token</string>
     <string name="recovery_desc">Optional. A code you keep yourself that lets you reconnect Cloak to this space if Cloak\'s data is ever cleared.</string>
     <string name="recovery_open">Set up or manage</string>
