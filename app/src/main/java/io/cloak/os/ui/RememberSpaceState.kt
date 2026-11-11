@@ -122,3 +122,17 @@ fun OnSpacePackagesChanged(block: () -> Unit) {
         onDispose { la.unregisterCallback(callback) }
     }
 }
+
+@Composable
+fun OnResume(block: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycle = remember(context) { context.findActivity().lifecycle }
+    val current by rememberUpdatedState(block)
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) current()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+}

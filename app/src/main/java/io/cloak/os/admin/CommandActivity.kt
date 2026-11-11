@@ -33,6 +33,7 @@ import io.cloak.os.transfer.TransferId
 import io.cloak.os.transfer.TransferReport
 import io.cloak.os.transfer.TransferWork
 import io.cloak.os.ui.ShareReceiverActivity
+import io.cloak.os.bridge.SpaceEvents
 
 class CommandActivity : Activity() {
     private var awaitingPin = false
@@ -85,7 +86,11 @@ class CommandActivity : Activity() {
                     )
                 )
             }
-            Commands.UNLOCK -> Logx.d(TAG, "unlock requested")
+            Commands.UNLOCK -> {
+                Logx.d(TAG, "unlock requested")
+                setResult(RESULT_OK)
+                SpaceEvents.sendToMain(this, SpaceEvents.UNLOCKED)
+            }
             Commands.ENABLE_SYSTEM ->
                 if (PolicyManager.enableSystemApp(this, arg).isFailure) toast(R.string.toast_action_failed)
             Commands.FREEZE, Commands.UNFREEZE ->

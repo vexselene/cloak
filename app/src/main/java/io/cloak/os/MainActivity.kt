@@ -17,12 +17,16 @@ import io.cloak.os.common.Role
 import io.cloak.os.ui.HomeScreen
 import io.cloak.os.ui.theme.spaceBackground
 import io.cloak.os.ui.theme.SpaceTheme
-
+import android.content.Intent
+import io.cloak.os.bridge.Commands
+import io.cloak.os.bridge.SpaceEvents
+import io.cloak.os.common.Logx
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Role.detect(this) == Role.AGENT) {
             finish()
+            handleEvent(intent)
             return
         }
         enableEdgeToEdge(
@@ -44,5 +48,19 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val STALE_EXPORT_MS = 10 * 60 * 1000L
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleEvent(intent)
+    }
+
+    private fun handleEvent(intent: Intent?) {
+        if (intent?.action != Commands.EVENT_ACTION) return
+        val name = intent.getStringExtra(Commands.EXTRA_EVENT)
+        val known = SpaceEvents.isKnown(name)
+        Logx.d("SecondSpace/Event", "event received: ${if (known) name else "unknown"}")
+        if (known) SpaceEvents.notifyMain()
     }
 }
