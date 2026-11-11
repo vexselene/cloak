@@ -160,6 +160,13 @@ class CommandActivity : Activity() {
                 }
             Commands.TRANSFER_REPORT -> answerReport(arg)
             Commands.TRANSFER_DONE -> acceptReport(arg)
+            Commands.LOCK_STATUS -> {
+                val km = getSystemService(KeyguardManager::class.java)
+                val unified = runCatching {
+                    dpm.isUsingUnifiedPassword(SpaceAdminReceiver.component(this))
+                }.getOrDefault(true)
+                setResult(RESULT_OK, Intent().putExtra(Commands.EXTRA_LOCK_SEPARATE, !unified && km.isDeviceSecure))
+            }
             else -> Logx.w(TAG, "unknown command")
         }
         return false

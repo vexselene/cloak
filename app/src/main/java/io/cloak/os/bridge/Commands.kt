@@ -36,6 +36,8 @@ object Commands {
     const val EXTRA_REPORT = "report"
     const val EVENT_ACTION = "io.cloak.os.action.SPACE_EVENT"
     const val EXTRA_EVENT = "event"
+    const val LOCK_STATUS = "lock_status"
+    const val EXTRA_LOCK_SEPARATE = "separate"
     val TRANSFER_KINDS = setOf("files", "folder")
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 
