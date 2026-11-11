@@ -126,6 +126,9 @@ object PolicyManager {
             step("privacy") {
                 if (agent) applyPrivacy(context, PrivacySettings.load(context)).getOrThrow()
             }
+            step("hidden apps") {
+                if (agent) SessionManager.recoverOrphans(context)
+            }
             step("notification permission") {
                 if (agent && Build.VERSION.SDK_INT >= 33) {
                     dpm.setPermissionGrantState(

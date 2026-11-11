@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.SystemClock
 import io.cloak.os.bridge.LockSettings
 import io.cloak.os.common.Logx
+import android.os.Build
 
 object SessionManager {
     private const val TAG = "SecondSpace/Session"
@@ -69,6 +70,7 @@ object SessionManager {
         } else {
             LockService.stop(context)
             unhideRecorded(context)
+            recoverOrphans(context)
             setOpen(context, false)
         }
     }
@@ -184,5 +186,43 @@ object SessionManager {
         p.edit().putStringSet(KEY_HIDDEN, failed).commit()
         Logx.d(TAG, "unhid ${record.size - failed.size} of ${record.size} apps")
         return record - failed
+    }
+
+    /**
+     * With hide mode off nothing should be hidden. If something is, the record of what was hidden was
+     * lost (for example the space's data was cleared), so find it from the system's own state.
+     */
+    fun recoverOrphans(context: Context): Int {
+        if (LockSettings.load(context).hideApps) return 0
+        val dpm = dpm(context)
+        val admin = SpaceAdminReceiver.component(context)
+        val packages = installedPackages(context)
+        var shown = 0
+        for (pkg in packages) {
+            if (pkg == context.packageName) continue
+            val hidden = runCatching { dpm.isApplicationHidden(admin, pkg) }.getOrDefault(false)
+            if (!hidden) continue
+            val ok = runCatching {
+                dpm.setApplicationHidden(admin, pkg, false)
+                !dpm.isApplicationHidden(admin, pkg)
+            }.getOrDefault(false)
+            if (ok) shown++
+        }
+        if (shown > 0) prefs(context).edit().remove(KEY_HIDDEN).commit()
+        Logx.d(TAG, "orphan scan: saw ${packages.size} packages, showed $shown")
+        return shown
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installedPackages(context: Context): List<String> {
+        val pm = context.packageManager
+        val flags = PackageManager.MATCH_UNINSTALLED_PACKAGES or
+                PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+        val apps = if (Build.VERSION.SDK_INT >= 33) {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(flags.toLong()))
+        } else {
+            pm.getInstalledApplications(flags)
+        }
+        return apps.map { it.packageName }
     }
 }
