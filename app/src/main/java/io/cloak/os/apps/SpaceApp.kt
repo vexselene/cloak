@@ -43,4 +43,13 @@ object SpaceApps {
         val user = profile(context) ?: error("no space")
         context.getSystemService(LauncherApps::class.java).startMainActivity(app.component, user, null, null)
     }
+
+    fun count(context: Context): Int {
+        val user = profile(context) ?: return 0
+        return context.getSystemService(LauncherApps::class.java)
+            .getActivityList(null, user)
+            .map { it.applicationInfo.packageName }
+            .filter { it != context.packageName }
+            .toSet().size
+    }
 }

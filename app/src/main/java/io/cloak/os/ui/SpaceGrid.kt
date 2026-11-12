@@ -43,12 +43,14 @@ import io.cloak.os.bridge.Commands
 import io.cloak.os.common.Logx
 import io.cloak.os.common.Role
 import io.cloak.os.debug.DebugPanel
+import androidx.compose.runtime.collectAsState
 
 private val ICON_SIZE = 56.dp
 
 @Composable
 fun SpaceGrid(onAddApps: () -> Unit, modifier: Modifier = Modifier) {
     val apps by rememberSpaceApps()
+    val settling by AppListRefresh.settling.collectAsState()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(72.dp),
         modifier = modifier,
@@ -59,7 +61,7 @@ fun SpaceGrid(onAddApps: () -> Unit, modifier: Modifier = Modifier) {
         if (apps.isEmpty()) {
             item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    stringResource(R.string.empty_space_hint),
+                    stringResource(if (settling) R.string.grid_loading else R.string.empty_space_hint),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp, horizontal = 8.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
