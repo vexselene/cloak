@@ -181,6 +181,9 @@ fun SettingsScreen(modifier: Modifier = Modifier, onOpenRecovery: () -> Unit = {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            SettingsButton(R.string.allow_installs_button, onClick = {
+                Commands.send(context, Commands.ALLOW_INSTALLS)
+            })
             SettingsButton(R.string.maint_check, onClick = {
                 val ok = SpaceMaintenance.check(context).isSuccess
                 Toast.makeText(context, if (ok) reachableMsg else unreachableMsg, Toast.LENGTH_LONG).show()

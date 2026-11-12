@@ -38,6 +38,10 @@ object Commands {
     const val EXTRA_EVENT = "event"
     const val LOCK_STATUS = "lock_status"
     const val EXTRA_LOCK_SEPARATE = "separate"
+    const val EXTRA_VISIBLE = "visible"
+    const val INSTALL_STATUS = "install_status"
+    const val ALLOW_INSTALLS = "allow_installs"
+    const val EXTRA_ALLOWED = "allowed"
     val TRANSFER_KINDS = setOf("files", "folder")
     val TAKES_PACKAGE = setOf(CLONE, ENABLE_SYSTEM, FREEZE, UNFREEZE, UNINSTALL)
 
