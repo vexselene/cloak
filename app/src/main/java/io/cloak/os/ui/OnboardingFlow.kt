@@ -58,13 +58,16 @@ private const val PLAY_STORE = "com.android.vending"
 private const val CHECK_GAP_MS = 2_500L
 private const val MAX_AUTO_RETRIES = 5
 
+private enum class InstallStatus { CHECKING, ALLOWED, NOT_ALLOWED, UNREACHABLE }
+
 @Composable
 fun OnboardingFlow(step: Int, onStep: (Int) -> Unit, onFinish: () -> Unit, onOpenRecovery: () -> Unit) {
     val s = OnboardingRules.clamp(step)
     when (s) {
         0 -> LockStep { onStep(OnboardingRules.next(s)) }
         1 -> StoreStep { onStep(OnboardingRules.next(s)) }
-        2 -> AppsStep { onStep(OnboardingRules.next(s)) }
+        2 -> InstallStep { onStep(OnboardingRules.next(s)) }
+        3 -> AppsStep { onStep(OnboardingRules.next(s)) }
         else -> ProtectStep(onOpenRecovery, onFinish)
     }
 }
@@ -115,7 +118,6 @@ private fun StepPage(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = actions)
     }
 }
-
 private enum class LockStatus { CHECKING, SEPARATE, NOT_SET, UNREACHABLE }
 
 @Composable
@@ -210,6 +212,97 @@ private fun LockStep(onNext: () -> Unit) {
 }
 
 @Composable
+private fun InstallStep(onNext: () -> Unit) {
+    val context = LocalContext.current
+    var status by remember { mutableStateOf(InstallStatus.CHECKING) }
+    var failures by remember { mutableIntStateOf(0) }
+    var lastCheck by remember { mutableLongStateOf(0L) }
+    val notReadyMsg = stringResource(R.string.onboarding_not_ready)
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode == Activity.RESULT_OK) {
+            failures = 0
+            val allowed = r.data?.getBooleanExtra(Commands.EXTRA_ALLOWED, false) == true
+            status = if (allowed) InstallStatus.ALLOWED else InstallStatus.NOT_ALLOWED
+        } else {
+            failures++
+            status = InstallStatus.UNREACHABLE
+        }
+    }
+
+    fun check(force: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        // Cloak resumes after every check, so without this gap a check would trigger another one.
+        if (!force && now - lastCheck < CHECK_GAP_MS) return
+        lastCheck = now
+        status = InstallStatus.CHECKING
+        runCatching { launcher.launch(Commands.build(context, Commands.INSTALL_STATUS)) }
+            .onFailure {
+                Logx.e(TAG, "install check failed", it)
+                failures++
+                status = InstallStatus.UNREACHABLE
+            }
+    }
+
+    // Runs on first display and again when the user comes back from the setting.
+    OnResume { check(force = false) }
+
+    LaunchedEffect(status, failures) {
+        if (status == InstallStatus.UNREACHABLE && failures in 1..MAX_AUTO_RETRIES) {
+            delay(3_000L)
+            check(force = true)
+        }
+    }
+
+    StepPage(
+        index = 2,
+        title = R.string.onboarding_install_title,
+        body = R.string.onboarding_install_body,
+        actions = {
+            if (status == InstallStatus.ALLOWED) {
+                Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.onboarding_continue))
+                }
+            } else {
+                Button(
+                    onClick = {
+                        Commands.send(context, Commands.ALLOW_INSTALLS).onFailure {
+                            Toast.makeText(context, notReadyMsg, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.onboarding_install_open)) }
+                OutlinedButton(
+                    onClick = {
+                        failures = 0
+                        check(force = true)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.onboarding_check_again)) }
+                TextButton(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.onboarding_skip))
+                }
+            }
+        }
+    ) {
+        val (text, color) = when (status) {
+            InstallStatus.CHECKING -> R.string.onboarding_lock_checking to MaterialTheme.colorScheme.onSurfaceVariant
+            InstallStatus.ALLOWED -> R.string.onboarding_install_ok to MaterialTheme.colorScheme.primary
+            InstallStatus.NOT_ALLOWED -> R.string.onboarding_install_not to MaterialTheme.colorScheme.onSurface
+            InstallStatus.UNREACHABLE ->
+                (if (failures <= MAX_AUTO_RETRIES) R.string.onboarding_lock_waiting else R.string.onboarding_lock_unreachable) to
+                        MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Text(stringResource(text), color = color, style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.onboarding_install_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun StoreStep(onNext: () -> Unit) {
     val context = LocalContext.current
     val apps by rememberSpaceApps()
@@ -264,7 +357,7 @@ private fun StoreStep(onNext: () -> Unit) {
 @Composable
 private fun AppsStep(onNext: () -> Unit) {
     StepPage(
-        index = 2,
+        index = 3,
         title = R.string.onboarding_apps_title,
         body = R.string.onboarding_apps_body,
         scrollable = false,
@@ -298,7 +391,7 @@ private fun ProtectStep(onOpenRecovery: () -> Unit, onFinish: () -> Unit) {
     }
 
     StepPage(
-        index = 3,
+        index = 4,
         title = R.string.onboarding_protect_title,
         body = R.string.onboarding_protect_body,
         actions = {

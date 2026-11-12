@@ -246,4 +246,12 @@
     <string name="onboarding_recovery_body">A code only you hold. If Cloak\'s data is ever cleared, it lets you reconnect to this space instead of deleting it.</string>
     <string name="onboarding_recovery_set">A recovery token is set.</string>
     <string name="onboarding_hide_needs_recovery">Hidden apps cannot be shown again if Cloak loses its link to the space. Set a recovery token first.</string>
+    <string name="grid_loading">Getting your apps ready…</string>
+    <string name="onboarding_install_title">Let Cloak install apps</string>
+    <string name="onboarding_install_body">To add an app to Second Space, Cloak installs it there. Android needs you to allow that once. Tap the button, switch on the permission for Cloak, then come back.</string>
+    <string name="onboarding_install_open">Open the setting</string>
+    <string name="onboarding_install_ok">Cloak can install apps in Second Space.</string>
+    <string name="onboarding_install_not">Not allowed yet.</string>
+    <string name="onboarding_install_note">The wording differs by phone, usually "Install unknown apps" or "Allow from this source". You can skip this step. Android asks the first time you add an app, and you can also do it later from Settings, Maintenance.</string>
+    <string name="allow_installs_button">Allow installs in Second Space</string>
 </resources>
