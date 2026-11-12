@@ -225,4 +225,14 @@ object SessionManager {
         }
         return apps.map { it.packageName }
     }
+
+    /** How many launcher apps the system lists in the space right now, excluding Cloak itself. */
+    fun visibleCount(context: Context): Int {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val flags = PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+        return context.packageManager.queryIntentActivities(intent, flags)
+            .map { it.activityInfo.packageName }
+            .filter { it != context.packageName }
+            .toSet().size
+    }
 }

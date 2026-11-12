@@ -34,6 +34,7 @@ import io.cloak.os.transfer.TransferReport
 import io.cloak.os.transfer.TransferWork
 import io.cloak.os.ui.ShareReceiverActivity
 import io.cloak.os.bridge.SpaceEvents
+import android.provider.Settings
 
 class CommandActivity : Activity() {
     private var awaitingPin = false
@@ -123,7 +124,10 @@ class CommandActivity : Activity() {
             Commands.DELETE_SPACE -> PolicyManager.deleteSpace(this)
             Commands.REPAIR -> PolicyManager.setupChannel(this)
             Commands.SPIKE -> SpikeRunner.run(this, arg)
-            Commands.SESSION -> SessionManager.onAppOpened(this, refresh = arg == "r")
+            Commands.SESSION -> {
+                SessionManager.onAppOpened(this, refresh = arg == "r")
+                setResult(RESULT_OK, Intent().putExtra(Commands.EXTRA_VISIBLE, SessionManager.visibleCount(this)))
+            }
             Commands.SET_LOCK_MODE -> {
                 val s = LockSettings.decode(arg)
                 if (s == null) {
@@ -167,6 +171,9 @@ class CommandActivity : Activity() {
                 }.getOrDefault(true)
                 setResult(RESULT_OK, Intent().putExtra(Commands.EXTRA_LOCK_SEPARATE, !unified && km.isDeviceSecure))
             }
+            Commands.INSTALL_STATUS ->
+                setResult(RESULT_OK, Intent().putExtra(Commands.EXTRA_ALLOWED, packageManager.canRequestPackageInstalls()))
+            Commands.ALLOW_INSTALLS -> openInstallSettings()
             else -> Logx.w(TAG, "unknown command")
         }
         return false
@@ -326,5 +333,12 @@ class CommandActivity : Activity() {
             TransferHub.start(this, TransferWork.Settle(entry, report)) -> setResult(RESULT_OK)
             else -> setResult(RESULT_CANCELED)
         }
+    }
+
+    private fun openInstallSettings() {
+        val specific = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.fromParts("package", packageName, null))
+        val opened = runCatching { startActivity(specific) }.isSuccess ||
+                runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }.isSuccess
+        if (!opened) toast(R.string.toast_action_failed)
     }
 }

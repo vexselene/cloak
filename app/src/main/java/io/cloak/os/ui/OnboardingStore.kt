@@ -4,7 +4,7 @@ import android.content.Context
 
 object OnboardingRules {
     /** Steps after the welcome screen: lock, Play Store, apps, protection. */
-    const val STEP_COUNT = 4
+    const val STEP_COUNT = 5
 
     fun clamp(step: Int): Int = step.coerceIn(0, STEP_COUNT - 1)
     fun next(step: Int): Int = clamp(step + 1)

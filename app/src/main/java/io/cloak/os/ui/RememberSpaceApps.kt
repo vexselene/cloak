@@ -10,11 +10,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import io.cloak.os.apps.SpaceApp
 import io.cloak.os.apps.SpaceApps
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun rememberSpaceApps(): State<List<SpaceApp>> {
     val context = LocalContext.current
     val apps = remember { mutableStateOf(SpaceApps.list(context)) }
+    val pulse by AppListRefresh.pulse.collectAsState()
+    LaunchedEffect(pulse) {
+        if (pulse > 0) apps.value = withContext(Dispatchers.Default) { SpaceApps.list(context) }
+    }
     DisposableEffect(Unit) {
         val la = context.getSystemService(LauncherApps::class.java)
         val refresh = { apps.value = SpaceApps.list(context) }

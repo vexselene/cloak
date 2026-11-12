@@ -48,6 +48,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import android.app.Activity
+import io.cloak.os.apps.SpaceApps
+import kotlinx.coroutines.Job
 
 private const val TAG = "SecondSpace/Home"
 private const val UNLOCK_SETTLE_MS = 400L
@@ -102,6 +105,20 @@ fun HomeScreen() {
     }
     OnSpacePackagesChanged { appsChanged = true }
 
+    var settleJob by remember { mutableStateOf<Job?>(null) }
+    fun settle(expected: Int?) {
+        settleJob?.cancel()
+        settleJob = scope.launch { settleAppList(count = { SpaceApps.count(context) }, expected = expected) }
+    }
+
+    val sessionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val expected = if (r.resultCode == Activity.RESULT_OK) {
+            r.data?.getIntExtra(Commands.EXTRA_VISIBLE, -1)?.takeIf { it >= 0 }
+        } else null
+        Logx.d(TAG, "session result=${r.resultCode} expected=$expected")
+        settle(expected)
+    }
+
     fun sendSession() {
         if (!LockSettings.load(context).hideApps) return
         val now = System.currentTimeMillis()
@@ -109,9 +126,12 @@ fun HomeScreen() {
         lastSession = now
         val refresh = appsChanged
         appsChanged = false
-        Commands.send(context, Commands.SESSION, if (refresh) "r" else "").onFailure {
+        runCatching {
+            sessionLauncher.launch(Commands.build(context, Commands.SESSION, if (refresh) "r" else ""))
+        }.onFailure {
             if (refresh) appsChanged = true
             Logx.e(TAG, "session failed", it)
+            settle(null)
         }
     }
 
@@ -159,7 +179,7 @@ fun HomeScreen() {
         if (state == SpaceState.UNLOCKED && LockSettings.load(context).hideApps) {
             opening = true
             sendSession()
-            withTimeoutOrNull(2_000L) { snapshotFlow { spaceApps.isNotEmpty() }.first { it } }
+            withTimeoutOrNull(6_000L) { snapshotFlow { spaceApps.isNotEmpty() }.first { it } }
             opening = false
         } else {
             opening = false
