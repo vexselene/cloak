@@ -114,9 +114,9 @@ class LockService : Service() {
         var running = false
             private set
 
-        fun start(context: Context) {
+        fun start(context: Context): Boolean = runCatching {
             context.startForegroundService(Intent(context, LockService::class.java))
-        }
+        }.onFailure { Logx.e(TAG, "could not start the lock listener", it) }.isSuccess
 
         fun stop(context: Context) {
             context.stopService(Intent(context, LockService::class.java))

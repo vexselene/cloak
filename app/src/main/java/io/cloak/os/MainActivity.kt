@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                 ) { HomeScreen() }
             }
         }
+        handleEvent(intent)
     }
 
     private companion object {

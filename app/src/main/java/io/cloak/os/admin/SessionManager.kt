@@ -1,5 +1,6 @@
 package io.cloak.os.admin
 
+import android.annotation.SuppressLint
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.os.SystemClock
 import io.cloak.os.bridge.LockSettings
 import io.cloak.os.common.Logx
 import android.os.Build
+import android.content.pm.ApplicationInfo
 
 object SessionManager {
     private const val TAG = "SecondSpace/Session"
@@ -117,13 +119,17 @@ object SessionManager {
     private fun openSession(context: Context) {
         val unhidden = unhideRecorded(context)
         val p = prefs(context)
+        if (!p.contains(KEY_KNOWN)) saveKnown(context, launchable(context) + unhidden)
+        if (!LockService.start(context)) {
+            // No listener means hide mode can't protect this session; leave the session closed
+            // so the next lock/boot still hides apps. Acceptable over locking the user out.
+            Logx.w(TAG, "openSession: LockService failed to start, leaving session closed")
+            return
+        }
         p.edit()
             .putBoolean(KEY_OPEN, true)
             .putLong(KEY_OPENED_AT, System.currentTimeMillis())
             .commit()
-        // Built once. After that it changes only on clone or uninstall, or at lock if it differs.
-        if (!p.contains(KEY_KNOWN)) saveKnown(context, launchable(context) + unhidden)
-        LockService.start(context)
     }
 
     private fun setOpen(context: Context, open: Boolean) {
@@ -146,11 +152,11 @@ object SessionManager {
             .toSet()
     }
 
-    /** A package that no longer exists counts as handled. A hidden one still resolves with this flag. */
+    /** A package that no longer exists for this user counts as handled. A hidden one still resolves with this flag. */
     @Suppress("DEPRECATION")
     private fun isGone(context: Context, pkg: String): Boolean = runCatching {
-        context.packageManager.getApplicationInfo(pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES)
-        false
+        val info = context.packageManager.getApplicationInfo(pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        (info.flags and ApplicationInfo.FLAG_INSTALLED) == 0
     }.getOrDefault(true)
 
     /** True only if every target ended up hidden (or gone). An empty list counts as done. */
@@ -213,6 +219,7 @@ object SessionManager {
         return shown
     }
 
+    @SuppressLint("WrongConstant")
     @Suppress("DEPRECATION")
     private fun installedPackages(context: Context): List<String> {
         val pm = context.packageManager

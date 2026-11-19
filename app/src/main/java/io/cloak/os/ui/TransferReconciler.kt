@@ -22,6 +22,9 @@ import io.cloak.os.transfer.TransferWork
 private const val TAG = "SecondSpace/Reconcile"
 private const val POLL_WINDOW_MS = 12L * 3_600_000L
 private const val MIN_GAP_MS = 8_000L
+private const val STUCK_MS = 30_000L
+private const val YOUNG_MS = 30L * 60_000L
+private const val OLD_POLL_EVERY_MS = 10L * 60_000L
 
 private sealed class Task {
     class Poll(val id: String) : Task()
@@ -33,6 +36,8 @@ class TransferReconciler internal constructor(private val context: Context) {
     private val queue = ArrayDeque<Task>()
     private var current: Task? = null
     private var lastRun = 0L
+    private var launchedAt = 0L
+    private val polledAt = HashMap<String, Long>()
 
     /** Called when Cloak comes forward. Does nothing, and flashes nothing, unless something is waiting. */
     fun trigger() {
@@ -43,11 +48,22 @@ class TransferReconciler internal constructor(private val context: Context) {
     fun checkNow() = run()
 
     private fun run() {
-        if (current != null) return
+        if (current != null) {
+            if (SystemClock.elapsedRealtime() - launchedAt < STUCK_MS) return
+            Logx.w(TAG, "no answer from the space, giving up on it")
+            current = null
+            queue.clear()
+        }
         lastRun = SystemClock.elapsedRealtime()
         MoveLedger.prune(context)
         val cutoff = System.currentTimeMillis() - POLL_WINDOW_MS
-        MoveLedger.all(context).filter { it.createdAt >= cutoff }.forEach { queue.add(Task.Poll(it.id)) }
+        val now = System.currentTimeMillis()
+        MoveLedger.all(context).filter { it.createdAt >= cutoff }
+            .filter { now - it.createdAt < YOUNG_MS || now - (polledAt[it.id] ?: 0L) > OLD_POLL_EVERY_MS }
+            .forEach {
+                polledAt[it.id] = now
+                queue.add(Task.Poll(it.id))
+            }
         ReportStore.undelivered(context).forEach { queue.add(Task.Deliver(it)) }
         next()
     }
@@ -64,6 +80,7 @@ class TransferReconciler internal constructor(private val context: Context) {
                 is Task.Poll -> Commands.build(context, Commands.TRANSFER_REPORT, task.id)
                 is Task.Deliver -> Commands.build(context, Commands.TRANSFER_DONE, task.report.encode())
             }
+            launchedAt = SystemClock.elapsedRealtime()
             launch(intent)
         }
         if (sent.isFailure) {

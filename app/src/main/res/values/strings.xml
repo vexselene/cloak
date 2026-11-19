@@ -2,11 +2,7 @@
     <string name="app_name">Cloak</string>
     <string name="space_name">Second Space</string>
     <string name="create_space">Create Second Space</string>
-    <string name="space_exists">Second Space is set up</string>
-    <string name="running_in_space">Running inside Second Space</string>
     <string name="provisioning_not_allowed">This device does not allow creating a work profile right now</string>
-    <string name="owner_yes">Profile owner: yes</string>
-    <string name="owner_no">Profile owner: no</string>
     <string name="set_lock">Set Second Space lock</string>
     <string name="settings">Settings</string>
     <string name="privacy_title">Privacy</string>
@@ -144,11 +140,6 @@
     <string name="transfer_title_personal">Copy to your personal storage</string>
     <string name="transfer_title_space">Copy into Second Space</string>
     <string name="transfer_items">%1$d items to copy</string>
-    <string name="transfer_duplicates">If a file already exists</string>
-    <string name="transfer_rename">Keep both (rename the new one)</string>
-    <string name="transfer_replace">Replace the existing file</string>
-    <string name="transfer_skip">Skip it</string>
-    <string name="transfer_choose">Choose folder and copy</string>
     <string name="transfer_no_picker">This side has no folder picker. If this is Second Space, open Cloak, go to Settings, tap Enable folder picker in Second Space, and try again.</string>
     <string name="transfer_busy">Another transfer is already running</string>
     <string name="transfer_nothing">Nothing to copy. The shared items could not be read.</string>
@@ -184,9 +175,6 @@
     <string name="transfer_send_failed">Could not reach the other side. Check that Second Space is unlocked and try again</string>
     <string name="transfer_no_picker_personal">This phone has no file picker for that</string>
     <string name="transfer_no_picker_space">Second Space has no file picker. Open Cloak, go to Settings and tap Enable folder picker in Second Space</string>
-    <string name="transfer_op">What to do</string>
-    <string name="transfer_op_copy">Copy (keep the originals)</string>
-    <string name="transfer_op_move">Move (remove the originals after a verified copy)</string>
     <string name="transfer_move_note">Originals are removed only when every file was copied and its size checked, and the source has not changed since you picked it. Cancelled or partly failed moves remove nothing. Removal happens the next time you open Cloak.</string>
     <string name="transfer_move_explain">Move copies first, then removes the originals only after checking file counts and sizes on both sides. If anything differs, the originals stay.</string>
     <string name="transfer_move_pending">Copied. Open Cloak to remove the originals.</string>
@@ -254,4 +242,7 @@
     <string name="onboarding_install_not">Not allowed yet.</string>
     <string name="onboarding_install_note">The wording differs by phone, usually "Install unknown apps" or "Allow from this source". You can skip this step. Android asks the first time you add an app, and you can also do it later from Settings, Maintenance.</string>
     <string name="allow_installs_button">Allow installs in Second Space</string>
+    <string name="provisioning_failed">Setup did not finish. If another app already manages a work profile on this phone, remove it first. Android allows only one.</string>
+    <string name="transfer_notif_generic_running">Transfer in progress</string>
+    <string name="transfer_notif_generic_done">Transfer finished</string>
 </resources>

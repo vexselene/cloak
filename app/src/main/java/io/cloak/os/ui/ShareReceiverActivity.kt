@@ -135,7 +135,7 @@ private fun ReceiverScreen(uris: List<Uri>, role: Role, inAppId: String?, onClos
     }
 
     val current = state
-    val showCard = current != null && (started || current.running || uris.isEmpty())
+    val showCard = current != null && (started || uris.isEmpty())
 
     Box(Modifier.fillMaxSize()) {
         Column(

@@ -25,6 +25,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import io.cloak.os.apps.SpaceApps
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val SAFETY_POLL_MS = 3_000L
 
@@ -80,7 +82,7 @@ fun rememberSpaceState(refreshKey: Int = 0): State<SpaceState> {
         if (started) {
             while (true) {
                 delay(SAFETY_POLL_MS)
-                state.value = SpaceStateReader.read(context)
+                state.value = withContext(Dispatchers.Default) { SpaceStateReader.read(context) }
             }
         }
     }

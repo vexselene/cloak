@@ -109,6 +109,7 @@ class TransferService : Service() {
             .setSmallIcon(R.drawable.ic_stat_transfer)
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
         val conflict = s.conflict
         if (s.running) {
             b.setContentTitle(getString(transferTitle(s)))
@@ -134,6 +135,13 @@ class TransferService : Service() {
             b.setContentTitle(getString(transferTitle(s))).setContentText(text).setAutoCancel(true)
             if (Role.detect(this) == Role.MAIN) b.setContentIntent(openIntent())
         }
+        val publicVersion = Notification.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_transfer)
+            .setContentTitle(getString(transferTitle(s)))
+            .setContentText(getString(if (s.running) R.string.transfer_notif_generic_running else R.string.transfer_notif_generic_done))
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .build()
+        b.setPublicVersion(publicVersion)
         return b.build()
     }
 
@@ -168,5 +176,11 @@ class TransferService : Service() {
         const val NOTIFICATION_ID = 3
         const val NOTIFY_MS = 500L
         const val WAKE_MS = 2 * 60 * 60 * 1000L
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Logx.w(TAG, "foreground service timed out")
+        TransferHub.cancel()
+        stopSelf()
     }
 }

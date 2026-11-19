@@ -36,7 +36,7 @@ class TransferEngine(
     private val resolver = appContext.contentResolver
     private val dirMime = DocumentsContract.Document.MIME_TYPE_DIR
     private val dirUris = HashMap<List<String>, Uri>()
-    private val listings = HashMap<Uri, MutableMap<String, DocEntry>>()
+    private val listings = HashMap<Uri, MutableMap<Pair<String, Boolean>, DocEntry>>()
     private val recent = ArrayDeque<String>()
 
     private val rules = ConflictRules(job.policy)
@@ -168,12 +168,12 @@ class TransferEngine(
 
     private fun docUri(id: String): Uri = DocumentsContract.buildDocumentUriUsingTree(job.destTree, id)
 
-    /** Names in a destination folder, keyed by lower-case name. Kept up to date as files are created. */
-    private fun listing(dir: Uri): MutableMap<String, DocEntry> = listings.getOrPut(dir) {
-        val map = HashMap<String, DocEntry>()
+    /** Entries in a destination folder, keyed by (lower-case name, isDir). Kept up to date as files are created. */
+    private fun listing(dir: Uri): MutableMap<Pair<String, Boolean>, DocEntry> = listings.getOrPut(dir) {
+        val map = HashMap<Pair<String, Boolean>, DocEntry>()
         runCatching { DocTree.children(appContext, job.destTree, DocumentsContract.getDocumentId(dir)) }
             .getOrDefault(emptyList())
-            .forEach { map[ConflictRules.key(it.name)] = it }
+            .forEach { map[ConflictRules.key(it.name) to it.isDir] = it }
         map
     }
 
@@ -181,8 +181,8 @@ class TransferEngine(
         dirUris[path]?.let { return it }
         val parent = ensureDir(path.dropLast(1)) ?: return null
         val name = path.last()
-        val existing = listing(parent)[ConflictRules.key(name)]
-        val uri = if (existing != null && existing.isDir) {
+        val existing = listing(parent)[ConflictRules.key(name) to true]
+        val uri = if (existing != null) {
             docUri(existing.id)
         } else {
             runCatching { DocumentsContract.createDocument(resolver, parent, dirMime, name) }
@@ -195,14 +195,14 @@ class TransferEngine(
 
     private fun copyFile(f: PlanFile, dir: Uri): Outcome {
         val entries = listing(dir)
-        val existing = entries[ConflictRules.key(f.name)]?.takeIf { !it.isDir }
+        val existing = entries[ConflictRules.key(f.name) to false]
         val action = if (existing != null) decide(f, existing) else ConflictAction.RENAME
         if (existing != null && action == ConflictAction.SKIP) return Outcome.SKIPPED
 
         val replace = existing != null && action == ConflictAction.REPLACE
         val target: Uri
         val created: Boolean
-        var registered: String? = null
+        var registered: Pair<String, Boolean>? = null
         if (replace) {
             target = docUri(existing!!.id)
             created = false
@@ -271,11 +271,11 @@ class TransferEngine(
 
     /** Remembers a file we just created, under the name the provider actually gave it. */
     private fun register(
-        entries: MutableMap<String, DocEntry>, f: PlanFile, target: Uri, collided: Boolean
-    ): String {
+        entries: MutableMap<Pair<String, Boolean>, DocEntry>, f: PlanFile, target: Uri, collided: Boolean
+    ): Pair<String, Boolean> {
         val id = DocumentsContract.getDocumentId(target)
         val name = if (collided) DocTree.describe(appContext, target).name else f.name
-        val key = ConflictRules.key(name)
+        val key = ConflictRules.key(name) to false
         entries[key] = DocEntry(id, name, f.mime, f.size)
         return key
     }

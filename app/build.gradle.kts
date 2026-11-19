@@ -43,7 +43,7 @@ android {
 
     defaultConfig {
         applicationId = "io.cloak.os"
-        minSdk = 35
+        minSdk = 31
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName

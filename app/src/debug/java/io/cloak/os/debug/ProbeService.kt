@@ -21,7 +21,11 @@ class ProbeService : Service() {
             .setContentTitle("Second Space probe running")
             .setOngoing(true)
             .build()
-        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, notification)
+        }
         ScreenProbe.register(this, "service")
         return START_NOT_STICKY
     }

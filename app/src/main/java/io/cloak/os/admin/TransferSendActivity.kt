@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import io.cloak.os.R
 import io.cloak.os.common.Logx
 import io.cloak.os.transfer.DocTree
-import io.cloak.os.transfer.Grants
 import io.cloak.os.transfer.LedgerEntry
 import io.cloak.os.transfer.MoveLedger
 import io.cloak.os.transfer.Pickers

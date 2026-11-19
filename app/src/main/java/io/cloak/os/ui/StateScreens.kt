@@ -37,7 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 
 @Composable
-fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
+fun WelcomeScreen(allowed: Boolean, failed: Boolean = false, onCreate: () -> Unit) {
     CenteredPage(
         title = stringResource(R.string.welcome_title),
         body = stringResource(R.string.welcome_body)
@@ -48,6 +48,14 @@ fun WelcomeScreen(allowed: Boolean, onCreate: () -> Unit) {
                 stringResource(R.string.provisioning_not_allowed),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+        }
+        if (failed) {
+            Text(
+                stringResource(R.string.provisioning_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }

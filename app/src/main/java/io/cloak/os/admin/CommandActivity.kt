@@ -40,12 +40,12 @@ class CommandActivity : Activity() {
     private var awaitingPin = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         // If Android recreates the activity while the PIN prompt is up, the result still arrives and the command isn’t run twice.
         if (savedInstanceState?.getBoolean(STATE_AWAITING) == true) {
             awaitingPin = true
             return
         }
-        super.onCreate(savedInstanceState)
         val keepOpen = runCatching { handle() }
             .onFailure { Logx.e(TAG, "command failed", it) }
             .getOrDefault(false)
@@ -301,7 +301,7 @@ class CommandActivity : Activity() {
                 action = ShareIntents.ACTION_TRANSFER_IN
                 putExtra(ShareIntents.EXTRA_TRANSFER_ID, id)
                 clipData = clip
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
         )
     }

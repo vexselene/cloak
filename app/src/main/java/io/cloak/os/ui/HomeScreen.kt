@@ -112,6 +112,7 @@ fun HomeScreen() {
     }
 
     val sessionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        opening = false
         val expected = if (r.resultCode == Activity.RESULT_OK) {
             r.data?.getIntExtra(Commands.EXTRA_VISIBLE, -1)?.takeIf { it >= 0 }
         } else null
@@ -198,13 +199,17 @@ fun HomeScreen() {
         goStep(OnboardingRules.previous(obStep))
     }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+    var provisioningFailed by remember { mutableStateOf(false) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        provisioningFailed = r.resultCode != Activity.RESULT_OK
         checkTick++
     }
+    LaunchedEffect(state) { if (state != SpaceState.NONE) provisioningFailed = false }
 
     when (state) {
         SpaceState.NONE -> WelcomeScreen(
             allowed = dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE),
+            failed = provisioningFailed,
             onCreate = {
                 OnboardingStore.reset(context)
                 onboardingDone = false

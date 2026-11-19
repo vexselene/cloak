@@ -14,6 +14,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import io.cloak.os.bridge.Liveness
 import io.cloak.os.bridge.SpaceStateReader
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val POLL_MS = 1_500L
 
@@ -43,7 +45,7 @@ fun rememberProfileLiveness(): State<Liveness> {
         if (resumed) {
             while (true) {
                 delay(POLL_MS)
-                state.value = SpaceStateReader.readLiveness(context)
+                state.value = withContext(Dispatchers.Default) { SpaceStateReader.readLiveness(context) }
             }
         }
     }

@@ -25,7 +25,9 @@ object OwnershipProbe {
         val profiles = runCatching { um.userProfiles }.getOrNull()
         out.appendLine("userProfiles: ${profiles?.size ?: "unavailable"}")
         profiles?.forEach { u ->
-            val type = runCatching { la.getLauncherUserInfo(u)?.userType }.getOrNull()
+            val type = if (android.os.Build.VERSION.SDK_INT >= 35) {
+                runCatching { la.getLauncherUserInfo(u)?.userType }.getOrNull()
+            } else null
             val installed = runCatching { la.getApplicationInfo(context.packageName, 0, u); true }
                 .getOrDefault(false)
             out.appendLine("  $u type=$type cloakInstalled=$installed self=${u == Process.myUserHandle()}")
