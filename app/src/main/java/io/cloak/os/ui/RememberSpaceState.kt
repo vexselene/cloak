@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import io.cloak.os.apps.SpaceApps
+import io.cloak.os.bridge.SpaceProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -64,6 +65,7 @@ fun rememberSpaceState(refreshKey: Int = 0): State<SpaceState> {
         if (!started) return@DisposableEffect onDispose { }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
+                SpaceProfile.invalidate()
                 state.value = SpaceStateReader.read(context)
             }
         }
@@ -86,7 +88,9 @@ fun rememberSpaceState(refreshKey: Int = 0): State<SpaceState> {
             }
         }
     }
-    LaunchedEffect(refreshKey) { state.value = SpaceStateReader.read(context) }
+    LaunchedEffect(refreshKey) {
+        SpaceProfile.invalidate()
+        state.value = SpaceStateReader.read(context) }
     return state
 }
 

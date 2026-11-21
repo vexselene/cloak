@@ -4,9 +4,9 @@ An open-source, Secure Folder-style second space for Android. It uses Android's 
 
 You see one icon in your normal launcher. Open it, unlock the space, and you get a grid of the apps that live there. No root, no app virtualization, no vendor framework.
 
-> **Status: early.** Built and tested mainly on one phone (OnePlus 13s, OxygenOS 15), with partial checks on a Samsung Galaxy S21 FE (One UI 8.5, Android 16). Other phones are untested. Read [Limitations](#limitations) and [Not a security product](#not-a-security-product) before relying on it.
+> **Status: early, pre-release.** Built and tested mainly on Android 15 (OnePlus 13s, OxygenOS 15), with partial checks on Android 16 (Samsung Galaxy S21 FE, One UI 8.5). Android 12 to 14 are supported in the code but have not been tested on a real phone yet. Read [Limitations](#limitations) and [Not a security product](#not-a-security-product) before relying on it.
 
-<!-- Screenshots go here once the first release is ready. -->
+<!-- Screenshots go here. -->
 
 ## Features
 
@@ -26,23 +26,18 @@ You see one icon in your normal launcher. Open it, unlock the space, and you get
 
 ## Requirements
 
-- **Android 15 or newer** (API 35). Older versions are not supported yet.
+- **Android 12 or newer** (API 31). It is developed on Android 15, and the older versions (12 to 14) have not been tested on a real phone. See [Limitations](#limitations).
 - A phone that allows managed profiles. Some phones and enterprise setups do not.
-- Only one work profile can exist on a device. If another app already manages one, Second Space cannot be created until it is removed. Cloak tells you when that is the case.
+- Only one work profile can exist on a device. If another app already manages one, Second Space cannot be created until it is removed. Cloak tells you when that is the case. On Android 12 to 14 it can only recognise another app's profile when Cloak is installed inside it, so setup may simply end with a message saying it did not finish.
 
 ## Install
 
-> **Pre-release software.** Every version so far is a pre-release. It is tested on very few phones and
-> can change how the space is set up between versions. Read [Limitations](#limitations) first.
-
-**Requirements:** Android 15 or newer.
+> It is tested on very few phones and can change how the space is set up between versions. Read [Limitations](#limitations) first.
 
 ### Download
 
-1. Open the [Releases page](../../releases). GitHub does not show pre-releases as "Latest", so pick the
-   newest entry marked **Pre-release**.
-2. Under **Assets**, download `Cloak-<version>.apk`. Also download `Cloak-<version>.apk.sha256` if you
-   want to verify it. You can download on your phone or on a computer and copy the file over.
+1. Open the [Releases page](../../releases).
+2. Under **Assets**, download `Cloak-<version>.apk`. Also download `Cloak-<version>.apk.sha256` if you want to verify it. You can download on your phone, or on a computer and copy the file over.
 
 ### Verify (recommended)
 
@@ -57,15 +52,13 @@ sha256sum -c Cloak-<version>.apk.sha256           (Linux, macOS)
 
 The checksum file sits next to the APK on the same page, so this only catches a damaged download.
 
-**The APK came from the maintainer.** Check the signing certificate with `apksigner`, which is in the
-`build-tools` folder of the Android SDK:
+**The APK came from the maintainer.** Check the signing certificate with `apksigner`, which is in the `build-tools` folder of the Android SDK:
 
 ```
 apksigner verify --print-certs Cloak-<version>.apk
 ```
 
-The `certificate SHA-256 digest` line must match this value, which is also published in
-[`docs/release-cert.sha256`](docs/release-cert.sha256):
+The `certificate SHA-256 digest` line must match this value, which is also published in [`docs/release-cert.sha256`](docs/release-cert.sha256):
 
 ```
 b4df89f0679ccc781c3df58e1d0f58145da58f9ef55ebee7820fc47458caecd2
@@ -75,10 +68,7 @@ If the digest differs, do not install the file.
 
 ### Install the APK
 
-1. Open the APK on your phone. Android asks you to allow installs from the app you opened it with (your
-   browser or file manager). Allow it, go back, and tap **Install**. You can turn the permission off
-   again afterwards. Play Protect may warn that the app comes from an unknown developer. That is
-   expected for an APK installed outside the Play Store.
+1. Open the APK on your phone. Android asks you to allow installs from the app you opened it with (your browser or file manager). Allow it, go back, and tap **Install**. You can turn the permission off again afterwards. Play Protect may warn that the app comes from an unknown developer. That is expected for an APK installed outside the Play Store.
 2. Or install it from a computer with USB debugging on:
    ```
    adb install -r Cloak-<version>.apk
@@ -87,17 +77,13 @@ If the digest differs, do not install the file.
 
 ### Update
 
-Install a newer pre-release over the old one. The space and its apps stay, because both versions are
-signed with the same key. Cloak inside the space updates along with it, so give it a few seconds
-before using it.
+Install a newer pre-release over the old one. The space and its apps stay, because both versions are signed with the same key. Cloak inside the space updates along with it, so give it a few seconds before using it.
 
-If something misbehaves after an update, open **Settings, Maintenance, Repair space** first. If that
-does not help, remove the space and create it again. Removing it deletes everything inside it.
+If something misbehaves after an update, open **Settings, Maintenance, Repair space** first. If that does not help, remove the space and create it again. Removing it deletes everything inside it.
 
 ### Switching from a build you made yourself
 
-An APK signed with a different key cannot be installed over this one, and this one cannot replace a
-build you compiled yourself. Android refuses, in both directions. To switch:
+An APK signed with a different key cannot be installed over this one, and this one cannot replace a build you compiled yourself. Android refuses, in both directions. To switch:
 
 1. Copy out anything you need from the space (menu, **Transfer files**).
 2. In Cloak, **Settings, Remove, Delete Second Space**.
@@ -106,8 +92,8 @@ build you compiled yourself. Android refuses, in both directions. To switch:
 
 ### Uninstall
 
-Delete the space first (**Settings, Remove, Delete Second Space**), then uninstall Cloak. Deleting the
-space permanently removes its apps and data. Back up first, because there is no recovery for it.
+Delete the space first (**Settings, Remove, Delete Second Space**), then uninstall Cloak. Deleting the space permanently removes its apps and data. Back up first, because there is no recovery for it.
+If you have uninstalled the Cloak first, you can remove the work profile from the Android > Settings > User & Accounts > Work > Remove Work Profile. (Exact path may differ from OEM's implementation).
 
 ## Build from source
 
@@ -117,17 +103,25 @@ space permanently removes its apps and data. Back up first, because there is no 
    ```
    gradlew.bat assembleDebug        (Windows)
    ./gradlew assembleDebug          (macOS / Linux)
-   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   adb install -r -t app/build/outputs/apk/debug/app-debug.apk
    ```
 4. Run the unit tests with `gradlew.bat testDebugUnitTest`.
 
 Debug builds include developer tools (a Debug panel with probes and test buttons). Release builds do not. Never distribute a debug build.
 
+### Release builds
+
+A release build needs a signing key, and the build refuses to produce an unsigned APK.
+
+- **For your own phone:** add `cloak.debugSign=true` to `~/.gradle/gradle.properties` and run `gradlew assembleRelease`. It signs with your debug key, so it installs over a debug build without deleting your space.
+
+An APK signed with one key cannot be updated in place by an APK signed with another. Android refuses, and the only way forward is to remove the space and create it again. Never commit a keystore.
+
 ## Using it
 
 1. Open **Cloak** and tap **Create Second Space**. Follow the system prompts.
 2. The first run asks you to choose a lock for the space. Pick one that is different from your phone lock. Without a separate lock, the Lock button locks your whole phone.
-3. Open the space's Play Store and sign in if you want to install apps there, then add apps from your main space with the **+** button. For a normal app, Android shows an Install dialog inside the space. Tap Install.
+3. Allow Cloak to install apps inside the space when the first run asks. Open the space's Play Store and sign in if you want to install apps there, then add apps from your main space with the **+** button. For a normal app, Android shows an Install dialog inside the space. Tap Install.
 4. Open apps from the grid. The lock icon locks the space.
 5. The ⋮ menu has **Transfer files** and **Settings**.
 
@@ -154,32 +148,35 @@ Most of these come from how Android work profiles behave and cannot be fixed by 
 - **No backup.** Deleting the space deletes its data permanently. Cloud backup of Cloak is disabled on purpose.
 - **No idle auto-lock.** The space locks when you press Lock, or, with hide mode on, when the screen turns off. Without hide mode, locking the phone's screen does not re-lock Cloak's grid, and leaving a space app open does not lock it after a timeout.
 - **After entering the work PIN from a cold start,** you may land on the launcher and need to tap Cloak again. This is partly improved but not fully fixed.
-- **Fingerprint** is not offered for the space lock on the test phone, it is subjected to the work profile implementation from OEM.
+- **Fingerprint** is not always offered for the space lock. Android decides when to ask for the PIN instead, and on one test phone the unlock screen once stayed up after a fingerprint unlock. Turning the screen off and unlocking again clears it.
 
 **Hide mode (experimental)**
 - Hidden apps are stopped: no messages or notifications arrive while the space is locked, and they catch up when you open it.
+- Unhiding takes a moment on slower phones. Cloak shows "Getting your apps ready" and refreshes the grid for up to about 20 seconds until every app is back.
 - While the space is open, a small "Second Space is open" notification keeps the lock listener alive.
 - After a restart, apps may show in the launcher for a few seconds before they are hidden again. They always need the space's PIN.
-- If Cloak loses its link to the space while apps are hidden, they stay hidden until you reconnect with your recovery token and enable the hide mode again. Once the hide mode is enabled Cloak will unhide the apps on next refresh. 
+- If Cloak loses its link to the space while apps are hidden, they stay hidden until you reconnect with your recovery token. If the space's own data is cleared, Settings, Maintenance, Repair space shows them again.
 - With hide mode on, the screen turning off locks the space, which interrupts a file transfer that is running against the space's storage.
 
-**Privacy switches** depend on the phone maker. Screenshot blocking and clipboard blocking worked on the test phone. Notification redaction needs a freshly created space and is not yet confirmed. Contact privacy may not apply to every dialer.
+**Privacy switches** depend on the phone maker. Screenshot blocking and clipboard blocking worked on the test phone. Contact privacy may not apply to every dialer.
 
 **File transfer**
-- Choosing a folder inside the space needs a system files app there. Cloak asks you to enable it (Settings, File transfer) because the space has none by default (depends on OEM, some might have it).
+- Choosing a folder inside the space needs a system files app there. Cloak asks you to enable it (Settings, File transfer) because the space has none by default (some OEMs have it by default).
 - **Share from the space to your personal apps** is off by default. Turning it on lets every app in the space share to every personal app, not only Cloak.
-- Large transfers run in a foreground service with a notification. Android 15 limits how long data-sync services can run in a day (about six hours), which can stop a very large transfer.
+- Large transfers run in a foreground service with a notification. On Android 15 and newer the system limits how long data-sync services can run in a day (about six hours), which can stop a very large transfer. Cloak then cancels cleanly and keeps what it copied.
 - A move removes originals only when Cloak is next opened, after checking file counts and sizes on both sides. A skipped, failed, cancelled or changed source keeps its originals.
-- Replacing a file overwrites it in place, so cancelling mid-file leaves it partial.
+- Replacing a file overwrites it in place, so cancelling mid-file leaves it partial, although preserving original.
 
 **Recovery**
 - The recovery token only covers the case where Cloak's data in your main profile is lost. If the space's own data is cleared, the token's key is gone with it.
 - If you lose the token and Cloak's data, the only way out is to delete the space.
 - Anyone with the token and your space PIN could take over the space. Keep the token private.
 
-**Devices**
-- Tested mainly on one phone. Behaviour on other phones, and with Private Space or other cloned-app profiles, is unknown.
-- Android 15 or newer only.
+**Devices and Android versions**
+- Tested mainly on one phone, running Android 15, with partial checks on a second phone running Android 16.
+- **Android 12 to 14 are untested.** Hide mode after a restart, file transfer between the profiles, the share-sheet settings and the return to Cloak after the work PIN all depend on cross-profile behaviour that was only checked on Android 15 and 16. Tell us what you see.
+- On Android 12 to 14 Cloak cannot identify another app's work profile unless Cloak is installed in it, so the "another app manages a work profile" screen may not appear. If setup ends without creating the space, check Settings, Accounts for an existing work profile.
+- Behaviour on phones with Private Space or other cloned-app profiles is unknown.
 
 ## Not a security product
 
@@ -204,9 +201,9 @@ docs/              developer guide, threat model, release steps
 
 ## Contributing
 
-Issues and pull requests are welcome. Please read the developer guide first, especially the sections on the command channel and the list of dead ends, since several obvious approaches do not work for work profiles. **Behaviour that has not been verified on a real device should be described as such in pull requests.**
+Issues and pull requests are welcome. Please read the developer guide first, especially the sections on the command channel and the list of dead ends, since several obvious approaches do not work for work profiles. Behaviour that has not been verified on a real device should be described as such in pull requests.
 
-Because testing has covered only a couple of phones, reports of how Second Space behaves on other devices (model, Android version, what worked and what did not) are especially useful.
+Because testing has covered only a couple of phones, reports of how Second Space behaves on other devices (model, Android version, what worked and what did not) are especially useful, and reports from Android 12 to 14 most of all.
 
 ## License
 

@@ -145,12 +145,7 @@ object PolicyManager {
     }.onFailure { Logx.e(TAG, "requireWorkLock failed", it) }
 
     fun lockNow(context: Context): Result<Unit> = runCatching {
-        val dpm = dpm(context)
-        if (Build.VERSION.SDK_INT >= 34) {
-            dpm.lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY)
-        } else {
-            dpm.lockNow()
-        }
+        dpm(context).lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY)
     }.onFailure { Logx.e(TAG, "lockNow failed", it) }
 
     /** Needed so apps can be cloned in by sideloading APKs. See docs/THREAT_MODEL.md. */
@@ -159,6 +154,7 @@ object PolicyManager {
         val admin = SpaceAdminReceiver.component(context)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
+        dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
     }.onFailure { Logx.e(TAG, "allowInstalls failed", it) }
 
     fun applyPrivacy(context: Context, s: PrivacySettings): Result<Unit> {

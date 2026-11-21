@@ -17,19 +17,7 @@ data class SpaceApp(
 )
 
 object SpaceApps {
-    @Volatile private var cachedUser: UserHandle? = null
-    @Volatile private var cachedAt = 0L
-    private const val PROFILE_TTL_MS = 3_000L
-
-    fun profile(context: Context): UserHandle? {
-        val now = android.os.SystemClock.elapsedRealtime()
-        val u = cachedUser
-        if (u != null && now - cachedAt < PROFILE_TTL_MS) return u
-        return SpaceProfile.find(context).also {
-            cachedUser = it
-            cachedAt = now
-        }
-    }
+    fun profile(context: Context): UserHandle? = SpaceProfile.find(context)
 
     fun list(context: Context): List<SpaceApp> {
         val user = profile(context) ?: return emptyList()

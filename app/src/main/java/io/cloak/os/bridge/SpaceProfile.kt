@@ -46,6 +46,8 @@ object SpaceProfile {
         return result
     }
 
+    fun invalidate() { cached = null }
+
     /** Pure decision, so it can be unit tested. The filter check only runs when it must. */
     internal fun classify(
         cloakInside: Boolean,

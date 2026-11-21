@@ -14,11 +14,16 @@ class PackageReplacedReceiver : BroadcastReceiver() {
         val action = intent.action
         val boot = action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
                 action == Intent.ACTION_BOOT_COMPLETED
+        val pending = goAsync()
         Thread {
-            Logx.d("SecondSpace/Receiver", "setup triggered by $action")
-            if (boot) SessionManager.reportShutdown(app)
-            if (!boot || LockSettings.load(app).bootFix) SessionManager.reconcile(app)
-            PolicyManager.setupChannel(app)
+            try {
+                Logx.d("SecondSpace/Receiver", "setup triggered by $action")
+                if (boot) SessionManager.reportShutdown(app)
+                if (!boot || LockSettings.load(app).bootFix) SessionManager.reconcile(app)
+                PolicyManager.setupChannel(app)
+            } finally {
+                pending.finish()
+            }
         }.start()
     }
 }
