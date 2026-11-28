@@ -4,10 +4,10 @@ An open-source, Secure Folder-style second space for Android. It uses Android's 
 
 You see one icon in your normal launcher. Open it, unlock the space, and you get a grid of the apps that live there. No root, no app virtualization, no vendor framework.
 
-> **Status: early, pre-release.** Built and tested mainly on Android 15 (OnePlus 13s, OxygenOS 15), with partial checks on Android 16 (Samsung Galaxy S21 FE, One UI 8.5). Android 12 to 14 are supported in the code but have not been tested on a real phone yet. Read [Limitations](#limitations) and [Not a security product](#not-a-security-product) before relying on it.
+> **Status: first stable release, but early software.** Built and tested mainly on Android 15 (OnePlus 13s, OxygenOS 15), with partial checks on Android 16 (Samsung Galaxy S21 FE, One UI 8.5). Android 12 to 14 are supported in the code but have not been tested on a real phone yet. Read [Limitations](#limitations) and [Not a security product](#not-a-security-product) before relying on it.
 
 <!-- Screenshots go here. -->
-
+![Cloak Home Screen](screenshots/cloak-home.png) ![Add Apps](screenshots/add-apps.png)
 ## Features
 
 - **One-tap setup.** Cloak creates the space (an Android managed profile with Cloak as its profile owner) and walks you through a short first run: give the space its own lock, set up its Play Store, add apps, and optionally turn on a recovery token and hide mode.
@@ -32,11 +32,11 @@ You see one icon in your normal launcher. Open it, unlock the space, and you get
 
 ## Install
 
-> It is tested on very few phones and can change how the space is set up between versions. Read [Limitations](#limitations) first.
+> **Early software.** This is the first stable release, but it has been tested on very few phones, and later versions may change how the space is set up. Read [Limitations](#limitations) first.
 
 ### Download
 
-1. Open the [Releases page](../../releases).
+1. Open the [Releases page](../../releases) and take the entry marked **Latest**. Entries marked **Pre-release** are older test builds.
 2. Under **Assets**, download `Cloak-<version>.apk`. Also download `Cloak-<version>.apk.sha256` if you want to verify it. You can download on your phone, or on a computer and copy the file over.
 
 ### Verify (recommended)
@@ -77,7 +77,7 @@ If the digest differs, do not install the file.
 
 ### Update
 
-Install a newer pre-release over the old one. The space and its apps stay, because both versions are signed with the same key. Cloak inside the space updates along with it, so give it a few seconds before using it.
+Install a newer release over the old one. Updating from an earlier pre-release works the same way, as long as it was signed with the same release key. The space and its apps stay, because both versions are signed with the same key. Cloak inside the space updates along with it, so give it a few seconds before using it.
 
 If something misbehaves after an update, open **Settings, Maintenance, Repair space** first. If that does not help, remove the space and create it again. Removing it deletes everything inside it.
 
@@ -103,7 +103,7 @@ If you have uninstalled the Cloak first, you can remove the work profile from th
    ```
    gradlew.bat assembleDebug        (Windows)
    ./gradlew assembleDebug          (macOS / Linux)
-   adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 4. Run the unit tests with `gradlew.bat testDebugUnitTest`.
 
@@ -114,6 +114,7 @@ Debug builds include developer tools (a Debug panel with probes and test buttons
 A release build needs a signing key, and the build refuses to produce an unsigned APK.
 
 - **For your own phone:** add `cloak.debugSign=true` to `~/.gradle/gradle.properties` and run `gradlew assembleRelease`. It signs with your debug key, so it installs over a debug build without deleting your space.
+- **For publishing:** create your own release keystore, put its details in `keystore.properties` (gitignored) or in the `CLOAK_KEYSTORE`, `CLOAK_KEYSTORE_PASSWORD`, `CLOAK_KEY_ALIAS` and `CLOAK_KEY_PASSWORD` environment variables, and build with `-Pcloak.debugSign=false`. See [docs/RELEASING.md](docs/RELEASING.md).
 
 An APK signed with one key cannot be updated in place by an APK signed with another. Android refuses, and the only way forward is to remove the space and create it again. Never commit a keystore.
 
@@ -158,14 +159,14 @@ Most of these come from how Android work profiles behave and cannot be fixed by 
 - If Cloak loses its link to the space while apps are hidden, they stay hidden until you reconnect with your recovery token. If the space's own data is cleared, Settings, Maintenance, Repair space shows them again.
 - With hide mode on, the screen turning off locks the space, which interrupts a file transfer that is running against the space's storage.
 
-**Privacy switches** depend on the phone maker. Screenshot blocking and clipboard blocking worked on the test phone. Contact privacy may not apply to every dialer.
+**Privacy switches** depend on the phone maker. Screenshot blocking and clipboard blocking worked on the test phone. Notification redaction needs a freshly created space and is not yet confirmed. Contact privacy may not apply to every dialer.
 
 **File transfer**
-- Choosing a folder inside the space needs a system files app there. Cloak asks you to enable it (Settings, File transfer) because the space has none by default (some OEMs have it by default).
+- Choosing a folder inside the space needs a system files app there. Cloak asks you to enable it (Settings, File transfer) because the space has none by default.
 - **Share from the space to your personal apps** is off by default. Turning it on lets every app in the space share to every personal app, not only Cloak.
 - Large transfers run in a foreground service with a notification. On Android 15 and newer the system limits how long data-sync services can run in a day (about six hours), which can stop a very large transfer. Cloak then cancels cleanly and keeps what it copied.
 - A move removes originals only when Cloak is next opened, after checking file counts and sizes on both sides. A skipped, failed, cancelled or changed source keeps its originals.
-- Replacing a file overwrites it in place, so cancelling mid-file leaves it partial, although preserving original.
+- Replacing a file overwrites it in place, so cancelling mid-file leaves it partial.
 
 **Recovery**
 - The recovery token only covers the case where Cloak's data in your main profile is lost. If the space's own data is cleared, the token's key is gone with it.
